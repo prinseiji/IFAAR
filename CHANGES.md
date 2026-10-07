@@ -28,3 +28,10 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 
 ## Still open
 - Daytime sleeping waking you instantly / not advancing the day (needs Minecraft 26.2 source to fix properly).
+
+## Round 3 (adrenaline polish; not yet built or played)
+- Music: fixed stop-every-tick bug, replaced non-existent placeholder sound file, self-looping WAV stream.
+- New sounds (synthesized stand-ins): inject, power-up, power-down, heartbeat.
+- Rush filter is half desaturated; pulsing red vignette synced to heartbeat.
+- settings.gradle and LivingEntityInjuryMixin build fixes folded back into the project.
+- Full handoff documentation: DEVELOPMENT.md
