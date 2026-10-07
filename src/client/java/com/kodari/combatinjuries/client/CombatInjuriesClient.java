@@ -76,6 +76,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
    };
    private static long hysteriaPhantomAt;
    private static boolean postEffectsBroken;
+   private static long adrenalineBeatAt;
+   private static long lastHeartbeatAt;
    private static Identifier activePostEffect;
    private static CombatInjuriesClient.AdrenalineMusicSoundInstance adrenalineMusic;
 
@@ -105,6 +107,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          concussionSoundAt = 0L;
          hysteriaSoundAt = 0L;
          hysteriaPhantomAt = 0L;
+         adrenalineBeatAt = 0L;
+         lastHeartbeatAt = 0L;
          hysteriaStartedAt = 0L;
          hysteriaFilterEndedAt = 0L;
          adrenalineFilterEndedAt = 0L;
@@ -181,13 +185,27 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             adrenalineRushStartedAt = var2;
             adrenalineFilterEndedAt = 0L;
             adrenalineCrashFilterEndedAt = 0L;
+            playCue(var0, CombatInjuries.ADRENALINE_POWER_UP, 1.0F, 1.0F);
+            adrenalineBeatAt = var2 + 700L;
             if (hasAdrenalineWave()) {
                adrenalineMusic = new CombatInjuriesClient.AdrenalineMusicSoundInstance();
                var0.getSoundManager().play(adrenalineMusic);
             }
-         } else if (adrenalineRushWasActive) {
+         } else if (!var11 && adrenalineRushWasActive) {
             adrenalineFilterEndedAt = var2;
             stopAdrenalineMusic(var0);
+            playCue(var0, CombatInjuries.ADRENALINE_POWER_DOWN, 1.0F, 1.0F);
+         }
+
+         if (var11) {
+            if (adrenalineBeatAt > 0L && var2 >= adrenalineBeatAt) {
+               playCue(var0, CombatInjuries.ADRENALINE_HEARTBEAT, 0.9F, 1.0F);
+               lastHeartbeatAt = var2;
+               adrenalineBeatAt = var2 + 600L;
+            }
+         } else {
+            adrenalineBeatAt = 0L;
+            lastHeartbeatAt = 0L;
          }
 
          if (var12 && !adrenalineCrashWasActive) {
@@ -290,7 +308,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          float var7 = Math.max(0.0F, Math.min(1.0F, var12 / 1600.0F));
          setCameraPostEffect(var0, "hysteria_monochrome_" + Math.round(var7 * 10.0F));
       } else if (var2) {
-         setCameraPostEffect(var0, "adrenaline_monochrome_10");
+         setCameraPostEffect(var0, "adrenaline_monochrome_5");
       } else if (var3) {
          float var11 = Math.max(0.0F, Math.min(1.0F, (float)(var4 - adrenalineCrashStartedAt) / 900.0F));
          float crashLevel = Math.min(var11, crashRemaining);
@@ -322,7 +340,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             long var10 = var4 - adrenalineFilterEndedAt;
             if (var10 < 2200L) {
                float var8 = 1.0F - (float)var10 / 2200.0F;
-               setCameraPostEffect(var0, "adrenaline_monochrome_" + Math.round(var8 * 10.0F));
+               setCameraPostEffect(var0, "adrenaline_monochrome_" + Math.round(var8 * 5.0F));
                return;
             }
 
@@ -408,6 +426,25 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             }
          }
 
+         if (var3.hasEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT) && lastHeartbeatAt > 0L) {
+            float rvSince = (float)(var4 - lastHeartbeatAt);
+            float rvPulse = Math.max(0.0F, 1.0F - rvSince / 480.0F);
+            rvPulse *= rvPulse;
+            float rvFadeIn = Math.min(1.0F, (float)(var4 - adrenalineRushStartedAt) / 600.0F);
+            float rvStrength = (0.16F + 0.30F * rvPulse) * rvFadeIn;
+
+            for (int rvLayer = 0; rvLayer < 8; rvLayer++) {
+               int rvInset = rvLayer * 9;
+               int rvThick = 9;
+               int rvAlpha = (int)(rvStrength * 255.0F * (8 - rvLayer) / 8.0F);
+               int rvColor = rvAlpha << 24 | 0xB0101A;
+               var0.fill(rvInset, rvInset, var9 - rvInset, rvInset + rvThick, rvColor);
+               var0.fill(rvInset, var10 - rvInset - rvThick, var9 - rvInset, var10 - rvInset, rvColor);
+               var0.fill(rvInset, rvInset + rvThick, rvInset + rvThick, var10 - rvInset - rvThick, rvColor);
+               var0.fill(var9 - rvInset - rvThick, rvInset + rvThick, var9 - rvInset, var10 - rvInset - rvThick, rvColor);
+            }
+         }
+
          if (var3.hasEffect(CombatInjuries.ASPHYXIA_EFFECT)) {
             float var20 = (float)(0.5 + 0.5 * Math.sin(var4 / 260.0));
 
@@ -449,9 +486,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             if (var4 == null) {
                throw new IOException("No adrenaline .wav found in config/ifaar/adrenaline_music or the mod jar");
             } else {
-               Object var5 = var3
-                  ? new LoopingAudioStream(CombatInjuriesClient.AdrenalineWavAudioStream::new, var4)
-                  : new CombatInjuriesClient.AdrenalineWavAudioStream(var4);
+               Object var5 = new CombatInjuriesClient.AdrenalineWavAudioStream(var4);
                return CompletableFuture.completedFuture((AudioStream)var5);
             }
          } catch (IOException var6) {
@@ -467,7 +502,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
 
       private AdrenalineWavAudioStream(InputStream var1) throws IOException {
          try {
-            try (AudioInputStream var2 = AudioSystem.getAudioInputStream(var1)) {
+            try (AudioInputStream var2 = AudioSystem.getAudioInputStream(new java.io.BufferedInputStream(var1))) {
                AudioFormat var3 = var2.getFormat();
                int var4 = var3.getChannels();
                if (var4 != 1 && var4 != 2) {
@@ -491,16 +526,23 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       }
 
       public ByteBuffer read(int var1) {
-         int var2 = this.format.getFrameSize();
-         int var3 = Math.min(var1, this.audioData.length - this.position);
-         var3 -= var3 % var2;
-         if (var3 <= 0) {
+         int frame = this.format.getFrameSize();
+         int want = var1 - var1 % frame;
+         if (want <= 0 || this.audioData.length < frame) {
             return ByteBuffer.allocate(0);
          } else {
-            ByteBuffer var4 = ByteBuffer.allocateDirect(var3);
-            var4.put(this.audioData, this.position, var3);
-            this.position += var3;
-            return var4.flip();
+            ByteBuffer out = ByteBuffer.allocateDirect(want);
+
+            while (out.hasRemaining()) {
+               int n = Math.min(out.remaining(), this.audioData.length - this.position);
+               out.put(this.audioData, this.position, n);
+               this.position += n;
+               if (this.position >= this.audioData.length) {
+                  this.position = 0;
+               }
+            }
+
+            return out.flip();
          }
       }
 

@@ -40,6 +40,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permissions;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.clock.ClockTimeMarkers;
@@ -117,6 +118,10 @@ public final class CombatInjuries implements ModInitializer {
    public static final SoundEvent CONCUSSION_TINNITUS = (SoundEvent)Registry.register(
       BuiltInRegistries.SOUND_EVENT, CONCUSSION_TINNITUS_ID, SoundEvent.createVariableRangeEvent(CONCUSSION_TINNITUS_ID)
    );
+   public static final SoundEvent ADRENALINE_INJECT = registerSound("adrenaline_inject");
+   public static final SoundEvent ADRENALINE_POWER_UP = registerSound("adrenaline_powerup");
+   public static final SoundEvent ADRENALINE_POWER_DOWN = registerSound("adrenaline_powerdown");
+   public static final SoundEvent ADRENALINE_HEARTBEAT = registerSound("adrenaline_heartbeat");
    private static final Map<UUID, CombatInjuries.InjuryState> STATES = new HashMap<>();
 
    public void onInitialize() {
@@ -395,6 +400,7 @@ public final class CombatInjuries implements ModInitializer {
             return InteractionResult.PASS;
          } else {
             var4.consume(1, var3);
+            var1.playSound((Player)null, var3.getX(), var3.getY(), var3.getZ(), ADRENALINE_INJECT, SoundSource.PLAYERS, 1.0F, 1.0F);
             var5.adrenalineRushTicks = 600;
             var5.adrenalineCrashTicks = 0;
             var5.storedAdrenalineDamage = 0.0F;
@@ -707,6 +713,11 @@ public final class CombatInjuries implements ModInitializer {
       syncEffect(var0, HYSTERIA_EFFECT, var1.hysteria, -1);
       syncEffect(var0, ADRENALINE_RUSH_EFFECT, var1.adrenalineRushTicks > 0, var1.adrenalineRushTicks);
       syncEffect(var0, ADRENALINE_CRASH_EFFECT, var1.adrenalineCrashTicks > 0, var1.adrenalineCrashTicks);
+   }
+
+   private static SoundEvent registerSound(String name) {
+      Identifier id = Identifier.fromNamespaceAndPath("combatinjuries", name);
+      return (SoundEvent)Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
    }
 
    private static Holder<MobEffect> registerEffect(String var0, MobEffectCategory var1, int var2) {

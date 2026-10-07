@@ -2,14 +2,14 @@
   "adrenaline_music": {
     "sounds": [
       {
-        "name": "minecraft:block/note_block/harp",
+        "name": "combatinjuries:adrenaline_music_placeholder",
         "stream": true
       }
     ]
   },
-  "concussion_tinnitus": {
-    "sounds": [
-      "combatinjuries:concussion_tinnitus"
-    ]
-  }
+  "concussion_tinnitus": { "sounds": [ "combatinjuries:concussion_tinnitus" ] },
+  "adrenaline_inject": { "sounds": [ "combatinjuries:adrenaline_inject" ] },
+  "adrenaline_powerup": { "sounds": [ "combatinjuries:adrenaline_powerup" ] },
+  "adrenaline_powerdown": { "sounds": [ "combatinjuries:adrenaline_powerdown" ] },
+  "adrenaline_heartbeat": { "sounds": [ "combatinjuries:adrenaline_heartbeat" ] }
 }
