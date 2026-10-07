@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "combatinjuries:item/rusty_iron_axe",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": 11893336
+      }
+    ]
+  }
+}

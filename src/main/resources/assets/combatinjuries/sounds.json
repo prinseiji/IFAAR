@@ -1,0 +1,15 @@
+{
+  "adrenaline_music": {
+    "sounds": [
+      {
+        "name": "minecraft:block/note_block/harp",
+        "stream": true
+      }
+    ]
+  },
+  "concussion_tinnitus": {
+    "sounds": [
+      "combatinjuries:concussion_tinnitus"
+    ]
+  }
+}

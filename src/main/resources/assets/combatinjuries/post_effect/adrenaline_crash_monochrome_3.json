@@ -1,0 +1,69 @@
+{
+  "targets": {
+    "scratch": {}
+  },
+  "passes": [
+    {
+      "vertex_shader": "combatinjuries:post/monochrome",
+      "fragment_shader": "combatinjuries:post/monochrome",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "main",
+          "bilinear": true
+        }
+      ],
+      "output": "scratch",
+      "uniforms": {
+        "FilterParams": [
+          {
+            "name": "intensity",
+            "type": "float",
+            "value": 0.195
+          },
+          {
+            "name": "contrast",
+            "type": "float",
+            "value": 1.0
+          },
+          {
+            "name": "darkness",
+            "type": "float",
+            "value": 0.02
+          }
+        ]
+      }
+    },
+    {
+      "vertex_shader": "combatinjuries:post/monochrome",
+      "fragment_shader": "combatinjuries:post/monochrome",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "scratch",
+          "bilinear": true
+        }
+      ],
+      "output": "main",
+      "uniforms": {
+        "FilterParams": [
+          {
+            "name": "intensity",
+            "type": "float",
+            "value": 0.0
+          },
+          {
+            "name": "contrast",
+            "type": "float",
+            "value": 1.0
+          },
+          {
+            "name": "darkness",
+            "type": "float",
+            "value": 0.02
+          }
+        ]
+      }
+    }
+  ]
+}

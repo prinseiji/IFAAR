@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.kodari.combatinjuries.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+	"client": ["EntityRendererHysteriaMixin", "SoundEngineHysteriaMixin", "EntityBoundSoundInstanceAccessor", "GameRendererAccessor"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
