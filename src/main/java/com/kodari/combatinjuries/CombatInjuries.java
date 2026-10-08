@@ -21,6 +21,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.EndTick;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import com.kodari.combatinjuries.AdrenalineRules.Zone;
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
 import net.fabricmc.fabric.api.loot.v3.LootTableEvents.Modify;
 import net.minecraft.commands.CommandSourceStack;
@@ -96,7 +97,11 @@ public final class CombatInjuries implements ModInitializer {
    private static final ResourceKey<Item> ADRENALINE_KEY = ResourceKey.create(
       Registries.ITEM, Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_shot")
    );
-   public static final Item ADRENALINE_SHOT = (Item)Registry.register(BuiltInRegistries.ITEM, ADRENALINE_KEY, new Item(new Properties().setId(ADRENALINE_KEY)));
+   public static final Item ADRENALINE_SHOT = (Item)Registry.register(BuiltInRegistries.ITEM, ADRENALINE_KEY, new Item(new Properties().setId(ADRENALINE_KEY).stacksTo(16)));
+   private static final ResourceKey<Item> SYRINGE_KEY = ResourceKey.create(
+      Registries.ITEM, Identifier.fromNamespaceAndPath("combatinjuries", "syringe")
+   );
+   public static final Item SYRINGE = (Item)Registry.register(BuiltInRegistries.ITEM, SYRINGE_KEY, new Item(new Properties().setId(SYRINGE_KEY)));
    public static final Holder<MobEffect> HEMORRHAGE_EFFECT = registerEffect("hemorrhage", MobEffectCategory.HARMFUL, 8196128);
    public static final Holder<MobEffect> TETANUS_EFFECT = registerEffect("tetanus", MobEffectCategory.HARMFUL, 10903090);
    public static final Holder<MobEffect> FRACTURE_EFFECT = registerEffect("fracture", MobEffectCategory.HARMFUL, 13223352);
@@ -106,6 +111,7 @@ public final class CombatInjuries implements ModInitializer {
    public static final Holder<MobEffect> HYSTERIA_EFFECT = registerEffect("hysteria", MobEffectCategory.NEUTRAL, 15263976);
    public static final Holder<MobEffect> ADRENALINE_RUSH_EFFECT = registerEffect("adrenaline_rush", MobEffectCategory.BENEFICIAL, 14096693);
    public static final Holder<MobEffect> ADRENALINE_CRASH_EFFECT = registerEffect("adrenaline_crash", MobEffectCategory.HARMFUL, 3356234);
+   public static final Holder<MobEffect> STUN_EFFECT = registerEffect("adrenaline_stun", MobEffectCategory.HARMFUL, 8421504);
    private static final Identifier FRACTURE_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "fracture_speed");
    private static final Identifier RUSH_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_rush_speed");
    private static final Identifier CRASH_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_crash_speed");
@@ -118,6 +124,8 @@ public final class CombatInjuries implements ModInitializer {
    private static final ResourceKey<DamageType> HEMORRHAGE_DAMAGE_TYPE = damageTypeKey("hemorrhage");
    private static final ResourceKey<DamageType> ASPHYXIA_DAMAGE_TYPE = damageTypeKey("asphyxia");
    private static final ResourceKey<DamageType> ADRENALINE_CRASH_DAMAGE_TYPE = damageTypeKey("adrenaline_crash");
+   private static final ResourceKey<DamageType> ADRENALINE_OVERDOSE_DAMAGE_TYPE = damageTypeKey("adrenaline_overdose");
+   private static final Identifier STUN_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_stun_speed");
    private static final Identifier ADRENALINE_MUSIC_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_music");
    private static final Identifier CONCUSSION_TINNITUS_ID = Identifier.fromNamespaceAndPath("combatinjuries", "concussion_tinnitus");
    public static final SoundEvent ADRENALINE_MUSIC = (SoundEvent)Registry.register(
@@ -129,6 +137,7 @@ public final class CombatInjuries implements ModInitializer {
    public static final SoundEvent ADRENALINE_INJECT = registerSound("adrenaline_inject");
    public static final SoundEvent ADRENALINE_POWER_UP = registerSound("adrenaline_powerup");
    public static final SoundEvent ADRENALINE_POWER_DOWN = registerSound("adrenaline_powerdown");
+   public static final SoundEvent ADRENALINE_POWER_DOWN_GRAND = registerSound("adrenaline_powerdown_grand");
    public static final SoundEvent ADRENALINE_HEARTBEAT = registerSound("adrenaline_heartbeat");
    private static final Map<UUID, CombatInjuries.InjuryState> STATES = new HashMap<>();
 
@@ -136,6 +145,7 @@ public final class CombatInjuries implements ModInitializer {
       CreativeModeTabEvents.modifyOutputEvent(ResourceKey.create(Registries.CREATIVE_MODE_TAB, Identifier.withDefaultNamespace("tools_and_utilities")))
          .register((ModifyOutput)var0 -> {
             var0.accept(ADRENALINE_SHOT);
+            var0.accept(SYRINGE);
             var0.accept(rustyCreativeStack(Items.IRON_SWORD, "item.combatinjuries.rusty_iron_sword"));
             var0.accept(rustyCreativeStack(Items.IRON_AXE, "item.combatinjuries.rusty_iron_axe"));
             var0.accept(rustyCreativeStack(Items.IRON_PICKAXE, "item.combatinjuries.rusty_iron_pickaxe"));
@@ -183,6 +193,13 @@ public final class CombatInjuries implements ModInitializer {
                                        .then(
                                           Commands.literal("concussion").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "concussion"))
                                        ))
+                                    .then(Commands.literal("concussion_light").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "concussion_light")))
+                                    .then(Commands.literal("adrenaline_shots_2").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "adrenaline_shots_2")))
+                                    .then(Commands.literal("adrenaline_shots_3").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "adrenaline_shots_3")))
+                                    .then(Commands.literal("adrenaline_shots_4").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "adrenaline_shots_4")))
+                                    .then(Commands.literal("adrenaline_stun").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "adrenaline_stun")))
+                                    .then(Commands.literal("overdose").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "overdose")))
+                                    .then(Commands.literal("qte").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "qte")))
                                     .then(Commands.literal("asphyxia").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "asphyxia"))))
                                  .then(Commands.literal("winded").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "winded"))))
                               .then(Commands.literal("hysteria").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "hysteria"))))
@@ -232,6 +249,9 @@ public final class CombatInjuries implements ModInitializer {
             var3.adrenalineRushTicks = 0;
             var3.adrenalineCrashTicks = 0;
             var3.storedAdrenalineDamage = 0.0F;
+            var3.rushShots = 0;
+            var3.stunTicks = 0;
+            var3.shotLockoutTicks = 0;
             var3.bleedTicks = 0;
             var3.tetanusCooldown = 0;
             var3.tetanusDropOffHand = false;
@@ -274,6 +294,8 @@ public final class CombatInjuries implements ModInitializer {
    private static InteractionResult onAttack(Player var0, Level var1, InteractionHand var2, Entity var3, EntityHitResult var4) {
       if (!(var0 instanceof ServerPlayer var5)) {
          return InteractionResult.PASS;
+      } else if (state(var5).stunTicks > 0) {
+         return InteractionResult.FAIL;
       } else if (var5.getHealth() > 4.0F && state(var5).concussionTicks > 0 && Math.random() < 0.2) {
          return InteractionResult.FAIL;
       } else {
@@ -295,7 +317,28 @@ public final class CombatInjuries implements ModInitializer {
             var3.fracture = true;
             break;
          case "concussion":
-            var3.concussionTicks = 300;
+            applyConcussion(var3, true);
+            break;
+         case "adrenaline_shots_2":
+         case "adrenaline_shots_3":
+         case "adrenaline_shots_4":
+            var3.rushShots = Integer.parseInt(var1.substring(var1.length() - 1));
+            var3.adrenalineRushTicks = AdrenalineRules.segmentTicks(var3.rushShots);
+            var3.adrenalineCrashTicks = 0;
+            break;
+         case "adrenaline_stun":
+            var3.stunTicks = AdrenalineRules.CASHOUT_STUN_TICKS;
+            break;
+         case "overdose":
+            overdose(var2, var3);
+            break;
+         case "qte":
+            if (var3.adrenalineRushTicks > 0) {
+               var3.adrenalineRushTicks = AdrenalineRules.WINDOW_TICKS + AdrenalineRules.LATENCY_GRACE_TICKS + 20;
+            }
+            break;
+         case "concussion_light":
+            applyConcussion(var3, false);
             break;
          case "asphyxia":
             var3.asphyxia = true;
@@ -310,8 +353,12 @@ public final class CombatInjuries implements ModInitializer {
             break;
          case "adrenaline_rush":
             var3.adrenalineRushTicks = 600;
+            var3.rushShots = 1;
             var3.adrenalineCrashTicks = 0;
             var3.storedAdrenalineDamage = 0.0F;
+            var3.rushShots = 0;
+            var3.stunTicks = 0;
+            var3.shotLockoutTicks = 0;
             break;
          case "adrenaline_crash":
             var3.adrenalineRushTicks = 0;
@@ -334,6 +381,9 @@ public final class CombatInjuries implements ModInitializer {
             var3.adrenalineRushTicks = 0;
             var3.adrenalineCrashTicks = 0;
             var3.storedAdrenalineDamage = 0.0F;
+            var3.rushShots = 0;
+            var3.stunTicks = 0;
+            var3.shotLockoutTicks = 0;
             var3.deepRecoveryTicks = 0;
             var3.tetanusCooldown = 0;
             var3.bleedTicks = 0;
@@ -389,14 +439,82 @@ public final class CombatInjuries implements ModInitializer {
 
          if (var4.getItem() != ADRENALINE_SHOT) {
             return InteractionResult.PASS;
+         } else if (var5.stunTicks > 0 || var5.shotLockoutTicks > 0 || var3.getCooldowns().isOnCooldown(var4)) {
+            return InteractionResult.FAIL;
          } else {
+            int shots = var5.adrenalineRushTicks > 0 ? Math.max(1, var5.rushShots) : 0;
+            if (shots == 0) {
+               ItemStack cdStack = var4.copy();
+               var4.consume(1, var3);
+               var3.getCooldowns().addCooldown(cdStack, AdrenalineRules.COOLDOWN_TICKS);
+               var1.playSound((Player)null, var3.getX(), var3.getY(), var3.getZ(), ADRENALINE_INJECT, SoundSource.PLAYERS, 1.0F, 1.0F);
+               var5.rushShots = 1;
+               var5.adrenalineRushTicks = AdrenalineRules.FIRST_SEGMENT_TICKS;
+               var5.adrenalineCrashTicks = 0;
+               var5.storedAdrenalineDamage = 0.0F;
+               return InteractionResult.SUCCESS;
+            }
+
+            Zone zone = AdrenalineRules.zoneFor(shots, var5.adrenalineRushTicks);
+            if (zone == Zone.COOLDOWN) {
+               return InteractionResult.FAIL;
+            }
+
+            ItemStack cdStack2 = var4.copy();
             var4.consume(1, var3);
-            var1.playSound((Player)null, var3.getX(), var3.getY(), var3.getZ(), ADRENALINE_INJECT, SoundSource.PLAYERS, 1.0F, 1.0F);
-            var5.adrenalineRushTicks = 600;
-            var5.adrenalineCrashTicks = 0;
-            var5.storedAdrenalineDamage = 0.0F;
+            var3.getCooldowns().addCooldown(cdStack2, AdrenalineRules.COOLDOWN_TICKS);
+            var1.playSound((Player)null, var3.getX(), var3.getY(), var3.getZ(), ADRENALINE_INJECT, SoundSource.PLAYERS, 1.0F, 1.0F + 0.12F * shots);
+            if (shots >= AdrenalineRules.MAX_SHOTS) {
+               overdose(var3, var5);
+            } else if (zone == Zone.WINDOW) {
+               var5.rushShots = shots + 1;
+               var5.adrenalineRushTicks = AdrenalineRules.EXTENSION_SEGMENT_TICKS;
+            } else if (shots >= AdrenalineRules.LETHAL_EARLY_STACK) {
+               overdose(var3, var5);
+            } else {
+               var5.stunTicks = AdrenalineRules.SHOCK_STUN_TICKS;
+               endRush(var3, var5, false);
+            }
+
             return InteractionResult.SUCCESS;
          }
+      }
+   }
+
+   /** Rush is over: either pay the (multiplied) bill and crash, or - after a perfect 4-shot chain - walk away stunned with no debt. */
+   private static void endRush(ServerPlayer var0, CombatInjuries.InjuryState var1, boolean cashOut) {
+      int shots = Math.max(1, Math.min(AdrenalineRules.MAX_SHOTS, var1.rushShots));
+      var1.adrenalineRushTicks = 0;
+      var1.rushShots = 0;
+      if (cashOut) {
+         var1.storedAdrenalineDamage = 0.0F;
+         var1.stunTicks = AdrenalineRules.CASHOUT_STUN_TICKS;
+         return;
+      }
+
+      var1.adrenalineCrashTicks = 300;
+      if (var1.storedAdrenalineDamage > 0.0F) {
+         ServerLevel var13 = var0.level();
+         float bill = var1.storedAdrenalineDamage * AdrenalineRules.CRASH_MULT[shots];
+         var1.storedAdrenalineDamage = 0.0F;
+         var0.hurtServer(var13, injuryDamageSource(var13, ADRENALINE_CRASH_DAMAGE_TYPE), bill);
+      }
+   }
+
+   /** Lethal damage that ignores armor, effects and enchantments. A Totem of Undying still saves you, at a heavy price. Creative players keep the penalty but not the death. */
+   private static void overdose(ServerPlayer var0, CombatInjuries.InjuryState var1) {
+      var1.adrenalineRushTicks = 0;
+      var1.adrenalineCrashTicks = 0;
+      var1.rushShots = 0;
+      var1.storedAdrenalineDamage = 0.0F;
+      if (!var0.isCreative() && !var0.isSpectator()) {
+         ServerLevel var2 = var0.level();
+         var0.hurtServer(var2, injuryDamageSource(var2, ADRENALINE_OVERDOSE_DAMAGE_TYPE), 1.0E6F);
+      }
+
+      if (var0.isAlive()) {
+         var1.stunTicks = AdrenalineRules.TOTEM_STUN_TICKS;
+         var1.shotLockoutTicks = AdrenalineRules.OVERDOSE_LOCKOUT_TICKS;
       }
    }
 
@@ -434,7 +552,7 @@ public final class CombatInjuries implements ModInitializer {
                   || var1.is(DamageTypes.PLAYER_EXPLOSION)
                   || var10
             )) {
-            var6.concussionTicks = 300;
+            applyConcussion(var6, true);
          }
 
          if (var1.is(DamageTypes.IN_WALL)) {
@@ -492,8 +610,10 @@ public final class CombatInjuries implements ModInitializer {
                   var6.fracture = true;
                   var6.stillTicks = 0;
                }
-            } else if (!var7 && (var16.getType() == EntityTypes.IRON_GOLEM || var16.getType() == EntityTypes.WARDEN)) {
-               var6.concussionTicks = 300;
+            } else if (!var7 && var16.getType() == EntityTypes.WARDEN) {
+               applyConcussion(var6, true);
+            } else if (!var7 && var16.getType() == EntityTypes.IRON_GOLEM) {
+               applyConcussion(var6, false);
             }
          }
 
@@ -599,6 +719,11 @@ public final class CombatInjuries implements ModInitializer {
          var3.removeModifier(FRACTURE_SPEED_ID);
          var3.removeModifier(RUSH_SPEED_ID);
          var3.removeModifier(CRASH_SPEED_ID);
+         var3.removeModifier(STUN_SPEED_ID);
+         if (var1.stunTicks > 0) {
+            var3.addTransientModifier(new AttributeModifier(STUN_SPEED_ID, -1.0, Operation.ADD_MULTIPLIED_TOTAL));
+         }
+
          if (var1.fracture) {
             var3.addTransientModifier(new AttributeModifier(FRACTURE_SPEED_ID, -0.4, Operation.ADD_MULTIPLIED_TOTAL));
          }
@@ -705,15 +830,18 @@ public final class CombatInjuries implements ModInitializer {
          }
       }
 
+      if (var1.stunTicks > 0) {
+         var1.stunTicks--;
+      }
+
+      if (var1.shotLockoutTicks > 0) {
+         var1.shotLockoutTicks--;
+      }
+
       if (var1.adrenalineRushTicks > 0) {
          var1.adrenalineRushTicks--;
          if (var1.adrenalineRushTicks == 0) {
-            var1.adrenalineCrashTicks = 300;
-            if (var1.storedAdrenalineDamage > 0.0F) {
-               ServerLevel var13 = var0.level();
-               var0.hurtServer(var13, injuryDamageSource(var13, ADRENALINE_CRASH_DAMAGE_TYPE), var1.storedAdrenalineDamage);
-               var1.storedAdrenalineDamage = 0.0F;
-            }
+            endRush(var0, var1, var1.rushShots >= AdrenalineRules.MAX_SHOTS);
          }
       } else if (var1.adrenalineCrashTicks > 0) {
          var1.adrenalineCrashTicks--;
@@ -745,11 +873,12 @@ public final class CombatInjuries implements ModInitializer {
       syncEffect(var0, HEMORRHAGE_EFFECT, var1.hemorrhage, -1);
       syncEffect(var0, TETANUS_EFFECT, var1.tetanus, -1);
       syncEffect(var0, FRACTURE_EFFECT, var1.fracture, -1);
-      syncEffect(var0, CONCUSSION_EFFECT, var1.concussionTicks > 0, var1.concussionTicks);
+      syncEffect(var0, CONCUSSION_EFFECT, var1.concussionTicks > 0, var1.concussionTicks, var1.concussionHeavy ? 1 : 0);
       syncEffect(var0, ASPHYXIA_EFFECT, var1.asphyxia, -1);
       syncEffect(var0, WINDED_EFFECT, var1.winded, var1.windedTicks);
       syncEffect(var0, HYSTERIA_EFFECT, var1.hysteria, -1);
-      syncEffect(var0, ADRENALINE_RUSH_EFFECT, var1.adrenalineRushTicks > 0, var1.adrenalineRushTicks);
+      syncEffect(var0, ADRENALINE_RUSH_EFFECT, var1.adrenalineRushTicks > 0, var1.adrenalineRushTicks, Math.max(0, var1.rushShots - 1));
+      syncEffect(var0, STUN_EFFECT, var1.stunTicks > 0, var1.stunTicks);
       syncEffect(var0, ADRENALINE_CRASH_EFFECT, var1.adrenalineCrashTicks > 0, var1.adrenalineCrashTicks);
    }
 
@@ -772,13 +901,33 @@ public final class CombatInjuries implements ModInitializer {
    }
 
    private static void syncEffect(ServerPlayer var0, Holder<MobEffect> var1, boolean var2, int var3) {
+      syncEffect(var0, var1, var2, var3, 0);
+   }
+
+   /** Light concussion lasts 6 s, heavy 15 s. A light hit never shortens or downgrades a heavy one. */
+   public static final int CONCUSSION_LIGHT_TICKS = 120;
+   public static final int CONCUSSION_HEAVY_TICKS = 300;
+
+   private static void applyConcussion(CombatInjuries.InjuryState var0, boolean heavy) {
+      if (heavy) {
+         var0.concussionTicks = CONCUSSION_HEAVY_TICKS;
+         var0.concussionHeavy = true;
+      } else if (var0.concussionTicks <= 0) {
+         var0.concussionTicks = CONCUSSION_LIGHT_TICKS;
+         var0.concussionHeavy = false;
+      } else if (!var0.concussionHeavy) {
+         var0.concussionTicks = Math.max(var0.concussionTicks, CONCUSSION_LIGHT_TICKS);
+      }
+   }
+
+   private static void syncEffect(ServerPlayer var0, Holder<MobEffect> var1, boolean var2, int var3, int amp) {
       MobEffectInstance var4 = var0.getEffect(var1);
-      if (!var2 || var4 != null && (var3 == -1 || var3 <= var4.getDuration() + 1) && (var3 != -1 || var4.isInfiniteDuration())) {
+      if (!var2 || var4 != null && var4.getAmplifier() == amp && (var3 == -1 || var3 <= var4.getDuration() + 1) && (var3 != -1 || var4.isInfiniteDuration())) {
          if (!var2) {
             var0.removeEffect(var1);
          }
       } else {
-         var0.addEffect(new MobEffectInstance(var1, var3, 0, false, false, true));
+         var0.addEffect(new MobEffectInstance(var1, var3, amp, false, false, true));
       }
    }
 
@@ -853,6 +1002,11 @@ public final class CombatInjuries implements ModInitializer {
       var1.tetanusDropOffHand = false;
    }
 
+   public static boolean isStunned(Player var0) {
+      CombatInjuries.InjuryState var1 = STATES.get(var0.getUUID());
+      return var1 != null && var1.stunTicks > 0;
+   }
+
    public static boolean isFractured(Player var0) {
       CombatInjuries.InjuryState var1 = STATES.get(var0.getUUID());
       return var1 != null && var1.fracture;
@@ -870,6 +1024,10 @@ public final class CombatInjuries implements ModInitializer {
       private boolean hysteria;
       private boolean hasResistance;
       private int concussionTicks;
+      private boolean concussionHeavy;
+      private int rushShots;
+      private int stunTicks;
+      private int shotLockoutTicks;
       private int asphyxiaDamageTicks;
       private int buriedSuffocationTicks;
       private int lastBuriedSuffocationTick = -1;

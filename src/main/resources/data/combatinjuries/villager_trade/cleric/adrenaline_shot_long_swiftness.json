@@ -15,5 +15,7 @@
   "gives": {
     "id": "combatinjuries:adrenaline_shot",
     "count": 1
-  }
+  },
+  "max_uses": 2,
+  "xp": 30
 }

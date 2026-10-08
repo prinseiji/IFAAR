@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:glass_bottle",
+    "minecraft:iron_nugget"
+  ],
+  "result": {
+    "id": "combatinjuries:syringe",
+    "count": 1
+  }
+}

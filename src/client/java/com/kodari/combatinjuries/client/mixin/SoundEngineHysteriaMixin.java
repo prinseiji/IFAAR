@@ -56,7 +56,8 @@ public abstract class SoundEngineHysteriaMixin {
          return tinnitus ? 0.0F : 1.0F;
       }
 
-      float recovered = 1.0F - Math.max(0.0F, Math.min(1.0F, effect.getDuration() / CONCUSSION_RECOVERY_TICKS));
+      float recoveryTicks = effect.getAmplifier() >= 1 ? CONCUSSION_RECOVERY_TICKS : 60.0F;
+      float recovered = 1.0F - Math.max(0.0F, Math.min(1.0F, effect.getDuration() / recoveryTicks));
       recovered = recovered * recovered * (3.0F - 2.0F * recovered);
       if (tinnitus) {
          return 1.0F - recovered;

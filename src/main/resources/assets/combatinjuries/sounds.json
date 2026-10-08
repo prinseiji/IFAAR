@@ -11,5 +11,6 @@
   "adrenaline_inject": { "sounds": [ "combatinjuries:adrenaline_inject" ] },
   "adrenaline_powerup": { "sounds": [ "combatinjuries:adrenaline_powerup" ] },
   "adrenaline_powerdown": { "sounds": [ "combatinjuries:adrenaline_powerdown" ] },
+  "adrenaline_powerdown_grand": { "sounds": [ "combatinjuries:adrenaline_powerdown_grand" ] },
   "adrenaline_heartbeat": { "sounds": [ "combatinjuries:adrenaline_heartbeat" ] }
 }

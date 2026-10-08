@@ -1,5 +1,6 @@
 {
   "item.combatinjuries.adrenaline_shot": "Adrenaline Shot",
+  "item.combatinjuries.syringe": "Syringe",
   "item.combatinjuries.rusty_iron_sword": "Rusty Iron Sword",
   "item.combatinjuries.rusty_iron_axe": "Rusty Iron Axe",
   "item.combatinjuries.rusty_iron_pickaxe": "Rusty Iron Pickaxe",
@@ -19,7 +20,9 @@
   "effect.combatinjuries.hysteria": "Hysteria",
   "effect.combatinjuries.adrenaline_rush": "Adrenaline Rush",
   "effect.combatinjuries.adrenaline_crash": "Adrenaline Crash",
+  "effect.combatinjuries.adrenaline_stun": "Stunned",
   "death.attack.combatinjuries.hemorrhage": "%1$s bled to death",
   "death.attack.combatinjuries.asphyxia": "%1$s suffocated from asphyxia",
-  "death.attack.combatinjuries.adrenaline_crash": "%1$s could not survive the adrenaline crash"
+  "death.attack.combatinjuries.adrenaline_crash": "%1$s could not survive the adrenaline crash",
+  "death.attack.combatinjuries.adrenaline_overdose": "%1$s overdosed on adrenaline"
 }

@@ -3,6 +3,7 @@
   "values": [
     "combatinjuries:hemorrhage",
     "combatinjuries:asphyxia",
-    "combatinjuries:adrenaline_crash"
+    "combatinjuries:adrenaline_crash",
+    "combatinjuries:adrenaline_overdose"
   ]
 }

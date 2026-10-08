@@ -38,6 +38,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.client.renderer.RenderPipelines;
+import com.kodari.combatinjuries.AdrenalineRules;
 
 public final class CombatInjuriesClient implements ClientModInitializer {
    private static final String ADRENALINE_WAV_RESOURCE = "assets/combatinjuries/sounds/adrenaline_music/adrenaline.wav";
@@ -54,6 +56,15 @@ public final class CombatInjuriesClient implements ClientModInitializer {
    private static boolean asphyxiaWasActive;
    private static boolean windedWasActive;
    private static boolean adrenalineRushWasActive;
+   private static int lastRushShots;
+   private static boolean qteWindowWasOpen;
+   private static long finalFlashAt;
+   private static final long[] POPUP_BORN = new long[3];
+   private static final int[] POPUP_X = new int[3];
+   private static final int[] POPUP_Y = new int[3];
+   private static final int[] POPUP_IMG = new int[3];
+   private static long popupNextAt;
+   private static final int[][] POPUP_SIZE = {{229, 83}, {221, 83}, {198, 83}, {150, 83}, {272, 83}, {279, 83}};
    private static boolean adrenalineCrashWasActive;
    private static long concussionStartedAt;
    private static long hysteriaStartedAt;
@@ -105,6 +116,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          asphyxiaWasActive = false;
          windedWasActive = false;
          adrenalineRushWasActive = false;
+         lastRushShots = 0;
+         qteWindowWasOpen = false;
          adrenalineCrashWasActive = false;
          concussionSoundAt = 0L;
          hysteriaSoundAt = 0L;
@@ -138,7 +151,9 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          }
 
          if (var4 && var2 - concussionSoundAt >= 1600L) {
-            playCue(var0, CombatInjuries.CONCUSSION_TINNITUS, 0.55F, 1.35F);
+            MobEffectInstance concEffect = var1.getEffect(CombatInjuries.CONCUSSION_EFFECT);
+            boolean heavyConc = concEffect == null || concEffect.getAmplifier() >= 1;
+            playCue(var0, CombatInjuries.CONCUSSION_TINNITUS, heavyConc ? 0.55F : 0.2F, heavyConc ? 1.35F : 1.6F);
             concussionSoundAt = var2;
          }
 
@@ -188,6 +203,16 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             playCue(var0, SoundEvents.PLAYER_BREATH, 0.9F, 0.8F);
          }
 
+         MobEffectInstance qteFx = var1.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+         int qteShots = qteFx == null ? 0 : qteFx.getAmplifier() + 1;
+         boolean qteOpen = qteFx != null && AdrenalineRules.zoneFor(qteShots, qteFx.getDuration()) == AdrenalineRules.Zone.WINDOW;
+         if (qteOpen && !qteWindowWasOpen) {
+            playCue(var0, CombatInjuries.ADRENALINE_HEARTBEAT, 1.0F, qteShots >= AdrenalineRules.MAX_SHOTS ? 0.6F : 1.6F);
+         }
+
+         int prevRushShots = lastRushShots;
+         lastRushShots = qteShots;
+         qteWindowWasOpen = qteOpen;
          if (var11 && !adrenalineRushWasActive) {
             adrenalineRushStartedAt = var2;
             adrenalineFilterEndedAt = 0L;
@@ -201,14 +226,19 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          } else if (!var11 && adrenalineRushWasActive) {
             adrenalineFilterEndedAt = var2;
             stopAdrenalineMusic(var0);
-            playCue(var0, CombatInjuries.ADRENALINE_POWER_DOWN, 1.0F, 1.0F);
+            if (prevRushShots >= AdrenalineRules.MAX_SHOTS) {
+               finalFlashAt = var2;
+               playCue(var0, CombatInjuries.ADRENALINE_POWER_DOWN_GRAND, 1.0F, 1.0F);
+            } else {
+               playCue(var0, CombatInjuries.ADRENALINE_POWER_DOWN, 1.0F, 1.0F);
+            }
          }
 
          if (var11) {
             if (adrenalineBeatAt > 0L && var2 >= adrenalineBeatAt) {
                playCue(var0, CombatInjuries.ADRENALINE_HEARTBEAT, 0.9F, 1.0F);
                lastHeartbeatAt = var2;
-               adrenalineBeatAt = var2 + 600L;
+               adrenalineBeatAt = var2 + Math.max(340L, 600L - 80L * Math.max(0, lastRushShots - 1));
             }
          } else {
             adrenalineBeatAt = 0L;
@@ -406,6 +436,61 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       var0.getSoundManager().play(new SimpleSoundInstance(var1, SoundSource.PLAYERS, var2, var3, RandomSource.create(), var4.getX(), var4.getY(), var4.getZ()));
    }
 
+   /**
+    * Annoying fake pop-up windows from the third shot on. They stay on the left/center of the screen and are drawn
+    * BEFORE the timing bar, and never in the right-hand strip where the bar lives, so they can never hide it.
+    */
+   private static void renderPopups(GuiGraphicsExtractor var0, int w, int h, long now) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      MobEffectInstance rush = player == null ? null : player.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+      int shots = rush == null ? 0 : rush.getAmplifier() + 1;
+      if (shots < 3) {
+         java.util.Arrays.fill(POPUP_BORN, 0L);
+         popupNextAt = 0L;
+         return;
+      }
+
+      long life = 2800L;
+      if (popupNextAt == 0L) {
+         popupNextAt = now + 400L;
+      }
+
+      if (now >= popupNextAt) {
+         for (int i = 0; i < POPUP_BORN.length; i++) {
+            if (POPUP_BORN[i] == 0L) {
+               ThreadLocalRandom rnd = ThreadLocalRandom.current();
+               int img = rnd.nextInt(POPUP_SIZE.length);
+               int pw = POPUP_SIZE[img][0];
+               int ph = POPUP_SIZE[img][1];
+               int maxX = Math.max(4, w - 60 - pw);
+               int maxY = Math.max(4, h - ph - 20);
+               POPUP_IMG[i] = img;
+               POPUP_X[i] = rnd.nextInt(4, maxX + 1);
+               POPUP_Y[i] = rnd.nextInt(4, maxY + 1);
+               POPUP_BORN[i] = now;
+               break;
+            }
+         }
+
+         popupNextAt = now + (shots >= AdrenalineRules.MAX_SHOTS ? 500L : 900L) + ThreadLocalRandom.current().nextInt(500);
+      }
+
+      for (int i = 0; i < POPUP_BORN.length; i++) {
+         if (POPUP_BORN[i] != 0L) {
+            if (now - POPUP_BORN[i] > life) {
+               POPUP_BORN[i] = 0L;
+            } else {
+               int img = POPUP_IMG[i];
+               Identifier tex = Identifier.fromNamespaceAndPath("combatinjuries", "textures/gui/popup_" + (img + 1) + ".png");
+               int pw = POPUP_SIZE[img][0];
+               int ph = POPUP_SIZE[img][1];
+               var0.blit(RenderPipelines.GUI_TEXTURED, tex, POPUP_X[i], POPUP_Y[i], 0.0F, 0.0F, pw, ph, pw, ph);
+            }
+         }
+      }
+   }
+
    private static void renderOverlays(GuiGraphicsExtractor var0, DeltaTracker var1) {
       Minecraft var2 = Minecraft.getInstance();
       LocalPlayer var3 = var2.player;
@@ -421,9 +506,11 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          int var10 = var0.guiHeight();
          if (var6 != null) {
             long var11 = var4 - concussionStartedAt;
-            float var13 = var11 < 90L ? 0.9F : (var11 < 900L ? 0.9F * (float)(900L - var11) / 810.0F : 0.0F);
-            float concussionFrac = Math.max(0.0F, Math.min(1.0F, var6.getDuration() / 300.0F));
-            float var14 = (0.24F + 0.03F * (float)Math.sin(var4 / 420.0)) * concussionFrac;
+            boolean heavyConc = var6.getAmplifier() >= 1;
+            float flashPeak = heavyConc ? 0.9F : 0.4F;
+            float var13 = var11 < 90L ? flashPeak : (var11 < 900L ? flashPeak * (float)(900L - var11) / 810.0F : 0.0F);
+            float concussionFrac = Math.max(0.0F, Math.min(1.0F, var6.getDuration() / (heavyConc ? 300.0F : 120.0F)));
+            float var14 = (heavyConc ? 0.24F + 0.03F * (float)Math.sin(var4 / 420.0) : 0.1F + 0.015F * (float)Math.sin(var4 / 420.0)) * concussionFrac;
             float var15 = Math.max(var14, var13);
             if (var15 > 0.0F) {
                var0.fill(0, 0, var9, var10, Math.min(255, (int)(var15 * 255.0F)) << 24 | 16777215);
@@ -477,11 +564,12 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             float rvPulse = Math.max(0.0F, 1.0F - rvSince / 480.0F);
             rvPulse *= rvPulse;
             float rvFadeIn = Math.min(1.0F, (float)(var4 - adrenalineRushStartedAt) / 600.0F);
-            float rvStrength = (0.16F + 0.30F * rvPulse) * rvFadeIn;
+            int rvStack = Math.max(1, lastRushShots);
+            float rvStrength = Math.min(0.85F, (0.16F + 0.30F * rvPulse + 0.06F * (rvStack - 1)) * rvFadeIn);
 
             for (int rvLayer = 0; rvLayer < 8; rvLayer++) {
-               int rvInset = rvLayer * 9;
-               int rvThick = 9;
+               int rvInset = rvLayer * (9 + 5 * (rvStack - 1));
+               int rvThick = 9 + 5 * (rvStack - 1);
                int rvAlpha = (int)(rvStrength * 255.0F * (8 - rvLayer) / 8.0F);
                int rvColor = rvAlpha << 24 | 0xB0101A;
                var0.fill(rvInset, rvInset, var9 - rvInset, rvInset + rvThick, rvColor);
@@ -489,6 +577,56 @@ public final class CombatInjuriesClient implements ClientModInitializer {
                var0.fill(rvInset, rvInset + rvThick, rvInset + rvThick, var10 - rvInset - rvThick, rvColor);
                var0.fill(var9 - rvInset - rvThick, rvInset + rvThick, var9 - rvInset, var10 - rvInset - rvThick, rvColor);
             }
+         }
+
+         if (finalFlashAt > 0L) {
+            long ffAge = var4 - finalFlashAt;
+            if (ffAge < 1400L) {
+               float ffAlpha = ffAge < 150L ? 0.9F : 0.9F * (float)(1400L - ffAge) / 1250.0F;
+               var0.fill(0, 0, var9, var10, Math.min(255, (int)(ffAlpha * 255.0F)) << 24 | 0xC00010);
+            } else {
+               finalFlashAt = 0L;
+            }
+         }
+
+         renderPopups(var0, var9, var10, var4);
+         MobEffectInstance barFx = var3.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+         if (barFx != null) {
+            int bShots = barFx.getAmplifier() + 1;
+            int bSeg = AdrenalineRules.segmentTicks(bShots);
+            boolean bRed = bShots >= AdrenalineRules.MAX_SHOTS;
+            int bH = 140;
+            int bW = 8;
+            int bX = var9 - 18;
+            int bY = (var10 - bH) / 2;
+            int cdH = bH * AdrenalineRules.COOLDOWN_TICKS / bSeg;
+            int winH = bH * AdrenalineRules.WINDOW_TICKS / bSeg;
+            float bPulse = (float)(0.5 + 0.5 * Math.sin(var4 / (bRed ? 90.0 : 160.0)));
+            boolean bInWindow = AdrenalineRules.zoneFor(bShots, barFx.getDuration()) == AdrenalineRules.Zone.WINDOW;
+            int dangerColor = bRed ? 0xFF8A1818 : 0xFFD9822B;
+            int windowColor = bRed ? (bInWindow ? 0xFFFF2A2A : 0xFFC02020) : (bInWindow ? 0xFF3CE06A : 0xFF2FA350);
+            var0.fill(bX - 2, bY - 2, bX + bW + 2, bY + bH + 2, 0xB0000000);
+            var0.fill(bX, bY, bX + bW, bY + cdH, 0xFF6E6E6E);
+            var0.fill(bX, bY + cdH, bX + bW, bY + bH - winH, dangerColor);
+            var0.fill(bX, bY + bH - winH, bX + bW, bY + bH, windowColor);
+            if (bInWindow) {
+               int glow = (int)(90.0F * bPulse) << 24 | (bRed ? 0xFF2A2A : 0x3CE06A);
+               var0.fill(bX - 5, bY + bH - winH - 3, bX + bW + 5, bY + bH + 3, glow);
+            }
+
+            float bFrac = Math.max(0.0F, Math.min(1.0F, 1.0F - barFx.getDuration() / (float)bSeg));
+            int bMark = bY + (int)(bFrac * (bH - 2));
+            var0.fill(bX - 5, bMark, bX + bW + 5, bMark + 3, 0xFFFFFFFF);
+
+            for (int pip = 0; pip < AdrenalineRules.MAX_SHOTS; pip++) {
+               int pipY = bY - 14 + 0;
+               int pipX = bX - 6 + pip * 6;
+               var0.fill(pipX, pipY, pipX + 4, pipY + 4, pip < bShots ? (bRed ? 0xFFFF3030 : 0xFFFFFFFF) : 0x80000000);
+            }
+         }
+
+         if (var3.hasEffect(CombatInjuries.STUN_EFFECT)) {
+            var0.fill(0, 0, var9, var10, 0x40303030);
          }
 
          if (var3.hasEffect(CombatInjuries.ASPHYXIA_EFFECT)) {
@@ -518,8 +656,15 @@ public final class CombatInjuriesClient implements ClientModInitializer {
 
       public void tick() {
          LocalPlayer var1 = Minecraft.getInstance().player;
-         if (var1 == null || !var1.hasEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT)) {
+         MobEffectInstance rushFx = var1 == null ? null : var1.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+         if (rushFx == null) {
             this.stop();
+         } else {
+            int shots = rushFx.getAmplifier() + 1;
+            int seg = AdrenalineRules.segmentTicks(shots);
+            float elapsed = (float)(seg - rushFx.getDuration());
+            float approach = Math.max(0.0F, Math.min(1.0F, (elapsed - AdrenalineRules.COOLDOWN_TICKS) / (float)(seg - AdrenalineRules.COOLDOWN_TICKS)));
+            this.pitch = 1.0F + 0.05F * (shots - 1) + 0.2F * approach * approach;
          }
       }
 
