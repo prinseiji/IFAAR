@@ -35,3 +35,10 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - Rush filter is half desaturated; pulsing red vignette synced to heartbeat.
 - settings.gradle and LivingEntityInjuryMixin build fixes folded back into the project.
 - Full handoff documentation: DEVELOPMENT.md
+
+## Round 4 (playtest notes; not yet built or played)
+- Music no longer dies on concussion: it restarts muffled and recovers with the tinnitus fade.
+- Hemorrhage: rolled on confirmed Sharpness hits (50%); only a >=2 HP heal, Regeneration or sleep cures it; natural regen blocked while bleeding.
+- Rush speed +55%, airborne momentum boost so jumps keep speed.
+- Crash is heavier: tapering slow, mining/attack-speed/jump penalties, hunger drain, breathing, dark vignette.
+- Fracture jump-block also works client-side.

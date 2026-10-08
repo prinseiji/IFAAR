@@ -115,10 +115,10 @@ All injuries are cleared by a **qualifying sleep** (§3.10) and by `/injurytest 
 ### 3.1 Hemorrhage (bleeding)
 | | |
 |---|---|
-| **Trigger A** | Player attacks another **player** holding a **Sharpness** item. Chance = `max(5%, 30% − 3%×(total Protection levels on victim's 4 armor pieces) − 3% if victim has Resistance)`. Rolled in `AttackEntityCallback` — i.e. **on the swing**, before damage is calculated. |
+| **Trigger A** | A **confirmed Sharpness hit** (rolled in `afterDamage`, not on the swing): the attacker's main-hand weapon has Sharpness and the hit dealt damage. Chance = `max(5%, HEMORRHAGE_BASE_CHANCE (50%) − 3%×(total Protection levels on armor) − 3% if Resistance)`. |
 | **Trigger B** | Sustained contact damage from Cactus or Sweet Berry Bush: ≥ 100 ticks of continuous contact (gaps > 25 ticks reset the counter). |
 | **Effect** | Custom damage `combatinjuries:hemorrhage`, **1 HP**, every **20 ticks** when standing still, every **10 ticks** when sprinting or moving horizontally (> 0.01 b/tick). |
-| **Cure** | **Any health increase** (the code compares current vs last-tick health), Regeneration effect, qualifying sleep. |
+| **Cure** | A single heal of **≥ 2 HP** (`HEMORRHAGE_CURE_HEAL`: Instant Health, healing potions), the Regeneration effect (incl. golden apples), or a qualifying sleep. **While bleeding, natural regeneration and small heals are blocked** (`BLEEDING_BLOCKS_REGEN`; the health gain is reverted each tick). Earlier builds cured on *any* health gain, so ordinary regen wiped the bleed within seconds. |
 | **FX** | Hurt sound cue on start. Death message: "%s bled to death". |
 
 ### 3.2 Tetanus
@@ -228,7 +228,7 @@ Created via `rustyCreativeStack()` (creative tab) and applied automatically to t
  consume 1 item; rushTicks = 600 (30 s); crashTicks = 0; storedDamage = 0
         │
         ▼  ─── ADRENALINE RUSH (600 ticks) ───────────────────────────────
-        │  • Move speed  +30%   (ADD_MULTIPLIED_TOTAL, id adrenaline_rush_speed)
+        │  • Move speed  +55%   (ADD_MULTIPLIED_TOTAL, id adrenaline_rush_speed)
         │  • Attack dmg  +25%   (ADD_MULTIPLIED_TOTAL, id adrenaline_rush_damage)
         │  • EVERY time the player takes damage (afterDamage, not blocked):
         │        bank  = 0.5 × damageTaken   → storedAdrenalineDamage += bank
@@ -237,7 +237,7 @@ Created via `rustyCreativeStack()` (creative tab) and applied automatically to t
  deal `storedAdrenalineDamage` as damage type combatinjuries:adrenaline_crash (the "bill")
  crashTicks = 300 (15 s)
         ▼  ─── ADRENALINE CRASH (300 ticks) ───────────────────────────────
-        │  • Move speed −40%
+        │  • Move speed −55% → −19% (tapers over the crash), plus: block-break −50%, attack speed −35%, jump −30% (all tapering), +0.04 food exhaustion/tick, heavy-breath sound every 2.6 s, dark pulsing edge vignette
         ▼
  normal
 ```
@@ -248,8 +248,8 @@ Death message if the bill kills you: "%s could not survive the adrenaline crash"
 |---|---|---|
 | Rush duration | 600 ticks | `onUseItem`, `runInjuryTest` |
 | Crash duration | 300 ticks | `tickPlayer` (rush end), `runInjuryTest` |
-| Rush speed / damage | +0.30 / +0.25 | `tickPlayer` |
-| Crash speed | −0.40 | `tickPlayer` |
+| Rush speed / damage | +0.55 / +0.25 | `tickPlayer` |
+| Crash speed | −0.55 tapering to −0.19 | `tickPlayer` |
 | Heal-and-bank ratio | 0.5 | `afterDamage` |
 | Crash filter fade-in / fade-out | 900 ms / 3500 ms | client |
 | Rush filter fade-out | 2200 ms | client |
@@ -670,7 +670,9 @@ All on **2026-10-07** unless noted. "Owner" = project owner (non-programmer); "R
 | 1 | Jar decompiled, project reconstructed; 9 fixes: static post-effects + textures; tinnitus sound file; concussion fade; crash-filter fade tied to remaining time; burial asphyxia; sleep/hemorrhage; tetanus; hysteria phantom sounds; custom music folder | Owner's bug list | Compile-only |
 | 2 | Rusty tool models (tinted vanilla textures); `gradle.properties`; GitHub Actions workflow; build errors fixed in order: (a) `settings.gradle` `FAIL_ON_PROJECT_REPOS` blocked Loom's repository; (b) decompiler wrote `this instanceof Player` in the mixin | First real build | **Built OK; owner playtested: "almost everything up to expectation"** |
 | 2 feedback | Icons/textures: owner will supply their own art. Adrenaline music did not load. Wants loop until rush ends; inject/power-up/power-down SFX; rush filter ~half desaturated; red pulsing vignette + heartbeat | Playtest | — |
-| 3 | Music root causes fixed (stop-every-tick `else if`; nonexistent placeholder file; unmarkable stream); self-looping stream; 4 new synthesized sounds + registration; inject sound on server; filter level 5; vignette | Round-2 feedback | **Not built or played yet** |
+| 3 | Music root causes fixed (stop-every-tick `else if`; nonexistent placeholder file; unmarkable stream); self-looping stream; 4 new synthesized sounds + registration; inject sound on server; filter level 5; vignette | Round-2 feedback | Built; owner: music works, other notes below |
+| 3 feedback | Music was cancelled when a concussion started; hemorrhage unreliable/not sticking; rush not fast enough; jumping killed rush momentum; crash lacked weight | Playtest | — |
+| 4 | Music restarts muffled (18% → 100%) through a concussion instead of dying; hemorrhage rolled on confirmed Sharpness hits (50%), cured only by ≥2 HP heals/Regeneration/sleep, natural regen blocked while bleeding; rush speed +55% and client-side airborne momentum boost; crash tapers −55%→−19% with block-break/attack-speed/jump penalties, extra hunger drain, breathing loop and dark vignette; fracture jump-block also checks the synced effect (client has no server state) | Round-3 feedback | **Not built or played yet** |
 | — | Adrenaline V2 (§11.5) designed, not implemented | Owner wants it next | — |
 
 ---
@@ -755,8 +757,8 @@ The owner has no local build environment. Builds run on **GitHub Actions**:
 | ID | Attribute | Value | Active when |
 |---|---|---|---|
 | `fracture_speed` | movement speed | −0.40 | fractured |
-| `adrenaline_rush_speed` | movement speed | +0.30 | rushing |
-| `adrenaline_crash_speed` | movement speed | −0.40 | crashing |
+| `adrenaline_rush_speed` | movement speed | +0.55 (`RUSH_SPEED_BONUS`) | rushing |
+| `adrenaline_crash_speed` | movement speed | −0.55 × (0.35 + 0.65 × remaining/300) (`CRASH_SPEED_PENALTY`), tapers as the crash ends | crashing |
 | `adrenaline_rush_damage` | attack damage | +0.25 | rushing |
 | `hysteria_damage` | attack damage | +0.50 | hysteria |
 | `hysteria_knockback_resistance` | knockback resistance | +1.00 | hysteria |
