@@ -42,3 +42,17 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - Rush speed +55%, airborne momentum boost so jumps keep speed.
 - Crash is heavier: tapering slow, mining/attack-speed/jump penalties, hunger drain, breathing, dark vignette.
 - Fracture jump-block also works client-side.
+
+## Round 5
+
+- **Concussion tiers.** Heavy (15 s): explosions, Warden, mace smash, sonic boom, falling anvil. Light (6 s): iron golem hits. Both mute world sounds; light has a softer white haze (about 40% flash, 0.10 ambient), quieter and higher tinnitus, and a shorter fade-out. A light hit never shortens or downgrades a heavy concussion. The tier is carried in the effect amplifier (0 = light, 1 = heavy). Test: `/injurytest concussion` and `/injurytest concussion_light`.
+- **Adrenaline V2 minigame** (see DEVELOPMENT.md section 11.5). Up to 4 stacked shots; side bar on the right of the screen (grey cooldown, orange danger, green window, red at stack 4); too early = shock (stack 1-2) or overdose (stack 3+); 5th shot = overdose; a perfect 4-chain cancels the debt and stuns you; crash bill x1.0 / 1.5 / 2.0 by stack. Overdose uses the new damage type `adrenaline_overdose`, which ignores armor and effects. A Totem of Undying saves you but leaves a long stun, ends the rush, wipes the debt and locks shots for 60 s. Creative gets the effects but not the death. New stun effect `adrenaline_stun` (its icon is a grey copy of the crash icon - replace it with your own art). All numbers live in `AdrenalineRules.java`.
+- New test commands: `/injurytest adrenaline_shots_2|3|4`, `adrenaline_stun`, `overdose`, `qte`.
+
+## Round 6
+
+- **Pop-ups.** From the 3rd shot on, 6 fake "Windows 95" dialogs (textures/gui/popup_1..6.png) appear for about 3 s each, up to 3 at once. They never appear in the right-hand strip and are drawn before the timing bar, so they can never cover it.
+- **Music** rises in pitch toward the window, resets on each hit, and starts a little higher at each stack. **Vignette** gets thicker/stronger and the heartbeat faster with each stack. **Stack 4 ending** flashes the screen red and plays a bigger power-down (`adrenaline_powerdown_grand.ogg`).
+- **Stun after a perfect chain** shortened to 3 s.
+- **Shots stack to 16** and now use the vanilla item cooldown (greys out like an ender pearl, 10 s).
+- **Syringe** item (glass bottle + iron nugget, shapeless). **Adrenaline shot** recipe: syringe + Potion of Swiftness II (strong_swiftness), shapeless, via Fabric's `fabric:components` ingredient. Cleric trades kept, limited to 2 uses each. The syringe texture is a grey placeholder made from the shot art.

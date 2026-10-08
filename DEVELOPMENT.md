@@ -20,7 +20,7 @@
 ### 0.1 Provenance and status
 This document started as an analysis written from the decompiled jar, and was then revised against the real project history (§11.6) and the latest code. Sections 1–9 describe what the code does; §10 lists problems and their status; §11 is design notes and the Adrenaline V2 spec; §14–15 explain how the project is built and the traps already hit.
 
-**Nothing in this project has been run through a compiler by the person who wrote the fixes** (their workspace could not reach Maven). Builds were done by GitHub Actions (§14). The owner has playtested up to the "round 2" build (§11.6). **Round 3 changes (adrenaline audio/visuals, §11.1–11.4) are compiled-untested and play-untested.** Verify them with `/injurytest` (§12).
+**Nothing in this project has been run through a compiler by the person who wrote the fixes** (their workspace could not reach Maven). Builds were done by GitHub Actions (§14). The owner has playtested up to the "round 2" build (§11.6). **Round 3 changes (adrenaline audio/visuals, §11.1–11.4) have been confirmed present in the built jar** by decompiling it and diffing against the round-2 jar (static review only — see §10.11 for the gaps found). The build succeeded, but they are still **play-untested**. **Round 4** (hemorrhage, rush/crash tuning, music-vs-concussion, §11.6) is newer still and has not been built or played. Verify with `/injurytest` (§12).
 
 ### 0.2 About the source
 - **The authoritative source is the GitHub repository** (Gradle project: `src/main/java`, `src/client/java`, `src/main/resources`, `build.gradle`, `settings.gradle`, `gradle.properties`, `.github/workflows/build.yml`).
@@ -223,7 +223,7 @@ Created via `rustyCreativeStack()` (creative tab) and applied automatically to t
 
 ```
  right-click Adrenaline Shot
-        │  (server, UseItemCallback — instant, no animation, no sound)
+        │  (server, UseItemCallback — instant, no animation; plays the `adrenaline_inject` world sound)
         ▼
  consume 1 item; rushTicks = 600 (30 s); crashTicks = 0; storedDamage = 0
         │
@@ -270,7 +270,7 @@ Minecraft's sound system normally plays `.ogg` files declared in `sounds.json`. 
 1. `sounds.json` declares event `combatinjuries:adrenaline_music` pointing at a tiny **silent placeholder file** `sounds/adrenaline_music_placeholder.ogg` with `"stream": true`. **Minecraft drops any `sounds.json` entry whose file does not exist, leaving the event empty and unplayable** — the original placeholder (`minecraft:block/note_block/harp`) did not exist, which was one of two reasons the music never played (§10.1). The placeholder's audio is never heard.
 2. `AdrenalineMusicSoundInstance` extends `AbstractTickableSoundInstance` and implements Fabric's `FabricSoundInstance`, **overriding `getAudioStream(...)`** to hand the engine a custom `AudioStream` built from the WAV.
 3. Source selection (`pickCustomMusic()`): any `*.wav` in **`<game dir>/config/ifaar/adrenaline_music/`** is used (random one if several), otherwise the bundled `assets/combatinjuries/sounds/adrenaline_music/adrenaline.wav`. A `README.txt` is auto-created in that folder telling players this.
-4. `AdrenalineWavAudioStream` decodes the whole WAV to 16-bit PCM in memory (mono or stereo only) and serves it in chunks. `LoopingAudioStream` wraps it when the engine requests looping.
+4. `AdrenalineWavAudioStream` decodes the whole WAV to 16-bit PCM in memory (mono or stereo only) and serves it in chunks. **It loops itself**: `read()` wraps back to the start mid-buffer and never returns an empty buffer, so the engine's `LoopingAudioStream` is no longer used and the `looping` flag is ignored.
 5. `SilentAudioStream` is the fallback if no WAV can be found/decoded.
 6. Plays on `SoundSource.MUSIC` with `Attenuation.NONE` and `relative=true` (so it's non-positional and obeys the **Music** volume slider).
 
@@ -339,7 +339,7 @@ Both mixin configs use `defaultRequire: 1` — **a mixin that fails to find its 
 - **`no_knockback` tag** includes all three, so these never push the player.
 - **Villager trade tag**: `tags/villager_trade/cleric/level_5.json` lists the three shot trades.
 - **Lang** (`en_us.json`): item names, effect names, three death messages. Only English exists.
-- **Textures**: `textures/item/adrenaline_shot.png`, nine `textures/mob_effect/*.png`, all 16×16. *(Owner reports the textures have since been replaced by their own versions — nothing needs doing here beyond swapping files with the same names.)*
+- **Textures**: `textures/item/adrenaline_shot.png`, nine `textures/mob_effect/*.png`. **Owner-supplied art:** the item is 16×16 and the nine effect icons are **18×18** (the vanilla effect-icon size). To change art, swap files with the same names.
 - **Sounds** (`assets/combatinjuries/sounds/`): `concussion_tinnitus.ogg`, `adrenaline_inject.ogg`, `adrenaline_powerup.ogg`, `adrenaline_powerdown.ogg`, `adrenaline_heartbeat.ogg` (these four are **synthesized stand-ins** — replace with real recordings keeping the same filenames), `adrenaline_music_placeholder.ogg` (silent), and `adrenaline_music/adrenaline.wav` (the loop, §5.4). Server registers the four adrenaline events in `CombatInjuries` via `registerSound()`. Everything else still uses **vanilla sounds**: `WARDEN_HEARTBEAT` (hysteria), `PLAYER_HURT`, `SKELETON_HURT`, `BONE_BLOCK_BREAK`, `PLAYER_HURT_DROWN`, `PLAYER_BREATH`, plus the phantom list.
 
 ---
@@ -364,60 +364,20 @@ Cause: `build.gradle` generated the 33 post-effect JSONs and all textures at bui
 
 > Found by reading decompiled code. Not yet reproduced in-game. Class/field names refer to `CombatInjuriesClient` / `CombatInjuries`.
 
-### 10.1 ✅ FIXED (untested) — Adrenaline music was stopped one tick after it started, and the sound entry was empty
-In `tickClient`:
+### 10.1 ✅ FIXED (verified in jar, play-untested) — Adrenaline music was stopped one tick after it started, and the sound entry was empty
+**Was:** the rush-end branch in `tickClient` was `else if (adrenalineRushWasActive)`, which is true on every tick of a running rush, so the music was stopped ~50 ms after it began (and the filter-fade timestamp was overwritten each tick). Separately, the `sounds.json` placeholder did not resolve to a real file (§15).
+**Now:** the branch is `else if (!rush && adrenalineRushWasActive)` (a true end-of-rush transition), and `sounds.json` points at the bundled `adrenaline_music_placeholder.ogg`.
 
-```java
-if (rush && !adrenalineRushWasActive) {
-    ...start music...
-} else if (adrenalineRushWasActive) {          // ← BUG
-    adrenalineFilterEndedAt = now;
-    stopAdrenalineMusic(mc);
-}
-```
-The `else if` is meant to detect the rush **ending**, but it only checks `wasActive`. On every tick *after* the first while the rush is still running, `rush` is true and `wasActive` is true, so the first branch fails and the `else if` succeeds → the music is stopped ~50 ms after it started (and the filter-fade timestamp is overwritten every tick).
+### 10.2 ✅ FIXED (verified in jar, play-untested) — Looping: stream could not be marked/reset
+**Was:** `AdrenalineWavAudioStream`'s try-with-resources closed the underlying stream, so vanilla's `LoopingAudioStream` could not `reset()` it; the non-looping path also passed an un-markable stream to `AudioSystem`.
+**Now:** the source is wrapped in a `BufferedInputStream`, the WAV is decoded fully into memory, and `read()` serves it **circularly** (fills every buffer completely, wrapping at the end). The engine never sees end-of-stream, so there is no gap and no dependency on `LoopingAudioStream`. The seam is gapless only if the WAV itself loops cleanly (owner says it does).
 
-**Fix:**
-```java
-} else if (!rush && adrenalineRushWasActive) {  // rush just ended
-    adrenalineFilterEndedAt = now;
-    stopAdrenalineMusic(mc);
-    // ← power-down SFX goes here (§11.2)
-}
-```
-
-### 10.2 ✅ FIXED (untested) — Looping: stream could not be marked/reset
-`AdrenalineWavAudioStream`'s constructor wraps the input in a try-with-resources `AudioInputStream`, which **closes the underlying stream when the constructor finishes**. Vanilla's `LoopingAudioStream` loops by `reset()`-ing the buffered source and building a new stream; resetting a closed stream throws. So the first 2.57 s would play, then the loop would die. Also, `getAudioStream` passes a raw `Files.newInputStream`/resource stream (no `mark` support) on the non-looping path, which `AudioSystem.getAudioInputStream` can reject.
-
-Since the whole WAV is already decoded into memory, the simplest robust fix is to **do the looping yourself** and never rely on `LoopingAudioStream`:
-
-```java
-private static final class AdrenalineWavAudioStream implements AudioStream {
-    private final AudioFormat format;
-    private final byte[] data;
-    private int pos;
-
-    AdrenalineWavAudioStream(AudioFormat format, byte[] data) { this.format = format; this.data = data; }
-
-    @Override public AudioFormat getFormat() { return format; }
-
-    @Override public ByteBuffer read(int size) {
-        int frame = format.getFrameSize();
-        int want = size - (size % frame);
-        if (want <= 0 || data.length == 0) return ByteBuffer.allocate(0);
-        ByteBuffer out = ByteBuffer.allocateDirect(want);
-        while (out.hasRemaining()) {                       // wrap past the end with no gap
-            int n = Math.min(out.remaining(), data.length - pos);
-            out.put(data, pos, n);
-            pos += n;
-            if (pos >= data.length) pos = 0;
-        }
-        return out.flip();
-    }
-    @Override public void close() {}
-}
-```
-and in `getAudioStream`, decode once (e.g. a static `decodeWav(InputStream)` that wraps its *own* `BufferedInputStream` and closes it freely) and `return CompletableFuture.completedFuture(new AdrenalineWavAudioStream(fmt, bytes))` regardless of the `looping` flag. Filling every buffer completely, wrapping mid-buffer, is what makes the loop gapless — **provided the WAV itself loops cleanly** (last sample flows into first). The owner says it does.
+### 10.11 🟡 Round-3 polish gaps (found by diffing the round-3 jar; still open after round 4 — round 4 also added a crash breathing loop every 2.6 s, so gap 2 now also involves that)
+1. **Vignette appears late and vanishes abruptly.** It only draws when `lastHeartbeatAt > 0`, i.e. after the *first* heartbeat (~0.7 s after the rush starts), and `lastHeartbeatAt` is reset to 0 the moment the rush ends, so it **snaps off with no fade-out** (the filter does fade over 2.2 s). Fix: draw from rush start using the fade-in timer, and on rush end keep drawing with a fade based on `adrenalineFilterEndedAt`.
+2. **Power-down and crash-breath cues stack.** The vanilla `PLAYER_BREATH` cue (§5.3, crash start) fires on the same tick the `adrenaline_powerdown` sound starts. Delay or soften the breath.
+3. **Personal cues are positional.** `playCue()` builds a `SimpleSoundInstance` at the player's coordinates, so a sound that lasts over a second (power-up 1.3 s, power-down 1.8 s) is left behind when the player runs at +30% speed and can drift/pan. Prefer a relative (non-positional) instance for "inside your head" cues.
+4. **Heartbeat is a single decaying pulse**, not the lub-dub shape suggested in the original design (§11.4) — a stylistic choice, easy to upgrade.
+5. The vignette is drawn as 8 nested `fill()` frames (visibly stepped); the gradient-PNG upgrade remains optional.
 
 ### 10.3 🟠 Re-injecting during a rush erases the crash bill
 `onUseItem` sets `storedAdrenalineDamage = 0` and `adrenalineCrashTicks = 0` every time a shot is used. A player can therefore chain shots to **wipe their accumulated debt and skip the crash entirely**. Probably unintended. **Resolved by design in §11.5** (debt accumulates across a chain, and the timing/danger-zone rules govern when a shot may be used).
@@ -442,24 +402,23 @@ and in `getAudioStream`, decode once (e.g. a static `decodeWav(InputStream)` tha
 
 The owner's review said the build is "almost everything up to what I expected" and listed the following. (The textures item is **resolved** — replaced by the owner.)
 
-### 11.1 ✅ DONE (untested) — Fix the adrenaline music + make it loop
-Apply §10.1 and §10.2. **Strongly consider** a cleaner long-term route: convert the loop to `.ogg`, declare it normally in `sounds.json` with `"stream": true`, and delete the custom `AudioStream` classes entirely. Vanilla handles streamed looping for `.ogg` natively and it removes the Fabric-override dependency. Trade-off: many OGG encoders add a few ms of padding at the loop point, so test the seam; the existing WAV approach has no padding problem, and keeps the "drop your own `.wav` in config" feature, which would then need to stay as a separate code path.
+### 11.1 ✅ DONE (verified in jar, play-untested) — Fix the adrenaline music + make it loop
+Implemented as §10.1 + §10.2 (WAV kept; self-looping stream). Optional long-term alternative: convert the loop to `.ogg`, declare it normally in `sounds.json` with `"stream": true`, and delete the custom `AudioStream` classes — but many OGG encoders add padding at the loop point, and the WAV path is what enables the "drop your own `.wav` into `config/ifaar/adrenaline_music/`" feature.
 
-### 11.2 ✅ MOSTLY DONE (untested) — Adrenaline sound effects (inject, power-up, heartbeat, power-down)
-Currently the whole inject → rush → end sequence is silent apart from the (broken) music. Proposed sequence:
-
-| Moment | Sound | Where it plays | Notes |
+### 11.2 ✅ DONE (verified in jar, play-untested) — Adrenaline sound effects
+| Moment | Sound (event) | Plays | Status |
 |---|---|---|---|
-| **Injection** (right-click) | needle/click + short "thump" (~0.5 s) | **Server**: `level.playSound(null, x, y, z, ADRENALINE_INJECT, SoundSource.PLAYERS, 1f, 1f)` inside `onUseItem` | World sound, so nearby players hear it. **Yes, an inject SFX is warranted** — right now the item feels like nothing happened. |
-| **Power-up** | rising swell / rush of air (1–2 s) | **Client**, at rush start (the `rush && !wasActive` branch), via the existing `playCue()` | Personal/internal feel, others don't hear it. Layer so it resolves into the music loop starting. |
-| **Rush loop** | the music (§11.1) | Client | — |
-| **Power-down** | falling "winding down" sweep | **Client**, in the corrected `else if (!rush && wasActive)` branch | Fires for natural expiry *and* `/injurytest clear`/sleep wipes, which is the desired behaviour. The existing crash breath cue starts immediately after; consider delaying it ~0.5 s or lowering its volume so they don't stack. |
+| Injection | `adrenaline_inject` (0.45 s) | **Server** world sound in `onUseItem` (`SoundSource.PLAYERS`, heard by nearby players and the user) | ✅ |
+| Power-up | `adrenaline_powerup` (1.3 s) | Client, on rush start | ✅ |
+| Rush loop | music WAV | Client | ✅ |
+| Heartbeat | `adrenaline_heartbeat` (0.55 s), every 600 ms, volume 0.9 | Client, while rushing | ✅ |
+| Power-down | `adrenaline_powerdown` (1.8 s) | Client, on rush end (also on `/injurytest clear` / sleep wipe) | ✅ |
 
-Registration pattern to copy: how `CONCUSSION_TINNITUS` is done — a `SoundEvent.createVariableRangeEvent(id)` registered in `BuiltInRegistries.SOUND_EVENT` in `CombatInjuries`, an entry in `sounds.json`, and the `.ogg` under `assets/combatinjuries/sounds/`. Use `.ogg` mono for world-positioned sounds. Verify the exact `Level.playSound` overload in 26.2.
-
-Optional nicety: give the item a short use-time/animation so the inject sound can sync to a visible action. This would mean replacing the plain `Item` with a custom Item class or components — not necessary for v1.
+All four are **synthesized stand-ins** (mono, 44.1 kHz OGG) registered through `registerSound()` in `CombatInjuries`; replace with real recordings using the same file names. Known polish gaps are in §10.11. Note the event IDs are `adrenaline_powerup` / `adrenaline_powerdown` (no underscore before `up`/`down`).
 
 ### 11.2b Master SFX spec — replacing the "make-do" vanilla sounds
+
+> **Status:** only the adrenaline rows `adrenaline_inject`, `adrenaline_power_up` (shipped as `adrenaline_powerup`), `adrenaline_power_down` (shipped as `adrenaline_powerdown`) and `adrenaline_heartbeat` are done. Everything else in this table (other injuries, crash, QTE, overdose, stun, hysteria, cure) is **still using vanilla sounds or has no sound**.
 
 Every cue below currently reuses a vanilla sound (or nothing). This table is a brief for whoever sources/records audio, and a to-do list for the programmer. **Naming rule:** file `assets/combatinjuries/sounds/<id>.ogg` ⇄ sound event `combatinjuries:<id>` ⇄ entry in `sounds.json`.
 
@@ -508,43 +467,16 @@ Kept as vanilla on purpose: the **hysteria phantom sounds** (zombie, skeleton, c
 - The `SoundEngineHysteriaMixin` muffles **every** sound except tinnitus while concussed. New cues will be muffled too, which is probably correct; it's only wrong for `concussion_hit`/`adrenaline_overdose` if you want them to punch through — add them to the exception list next to `isTinnitusSound`.
 - Replace cues by swapping the `SoundEvents.X` argument for your new `SoundEvent` in the `playCue(...)` calls in `tickClient`; no other logic changes.
 
-### 11.3 ✅ DONE (untested) — Half-strength desaturation (implemented by requesting level 5 in code, no JSON regeneration needed)
-Currently `adrenaline_monochrome_10` is intensity **1.0** (pure grey). The shader's `mix(color, grey, intensity)` means **0.5 = half desaturated**. Easiest fix: regenerate the 11 `adrenaline_monochrome_N.json` files so that `intensity = (N/10) × 0.5`. The client code needs no change (it still asks for level 10 = "full", which now means 0.5, and the fade math keeps working). One-off script to do it:
+### 11.3 ✅ DONE (verified in jar, play-untested) — Half-strength desaturation
+Implemented in code, with no JSON regeneration: during the rush the client requests `adrenaline_monochrome_5` (file intensity **0.5**, contrast 1.0, darkness 0.0), and the end-of-rush fade steps `round(fade × 5)` from level 5 down to 0, so the fade is consistent with the new ceiling. (Levels 6–10 of the `adrenaline_monochrome_*` family are now unused. To tune the strength, change the `5` in both places in `CombatInjuriesClient.updateCameraPostEffect`.)
 
-```python
-import json, glob
-for f in glob.glob("assets/combatinjuries/post_effect/adrenaline_monochrome_*.json"):
-    n = int(f.rsplit("_",1)[1].split(".")[0])
-    d = json.load(open(f))
-    for p in d["passes"]:
-        for u in p["uniforms"]["FilterParams"]:
-            if u["name"] == "intensity" and p["output"] == "scratch":   # first pass is the real filter
-                u["value"] = round(n / 10 * 0.5, 3)
-    json.dump(d, open(f, "w"), indent=2)
-```
-(Adjust the 0.5 to taste — the owner suggested "like half".)
+### 11.4 ✅ DONE (verified in jar, play-untested; polish gaps in §10.11) — Pulsing red vignette synced to a heartbeat
+- **Heartbeat:** `adrenaline_heartbeat` plays every **600 ms**, first beat 700 ms after rush start, from `adrenalineBeatAt` / `lastHeartbeatAt` in `tickClient`.
+- **Vignette:** drawn in `renderOverlays` (a HUD overlay, so it still shows during Hysteria) as **8 nested `fill()` frames**, colour `0xB0101A`. Strength = `(0.16 + 0.30 × pulse) × fadeIn`, where `pulse = (1 − msSinceBeat/480)²` (sharp attack on the beat, decaying) and `fadeIn` ramps over 600 ms. Max alpha ≈ 0.46 at the outer layer, tapering inwards.
+- Using the same `lastHeartbeatAt` timestamp for both sound and visual keeps them in sync.
+- Upgrade path (optional): a soft radial-gradient PNG instead of stepped frames, a lub-dub pulse shape, and the fixes in §10.11.
 
-### 11.4 ✅ DONE (untested) — Pulsing red vignette synced to a heartbeat (cheap nested-`fill()` method; the PNG-gradient method is still a possible upgrade)
-**Recommended approach: a HUD overlay, not a shader** (reason in §7.2).
-
-1. **Heartbeat sound.** Reuse `SoundEvents.WARDEN_HEARTBEAT` like Hysteria does, but make it read as a *different* state: Hysteria is slow and deep (800 ms, pitch 0.72); give the rush a **faster, brighter** beat (e.g. ~500 ms period, pitch ~1.0–1.1). Trigger it from a `rushNextBeatAt` timestamp inside `tickClient`, while the rush is active.
-2. **Vignette.** Add to `renderOverlays` (it already draws other overlays and will stay visible even during Hysteria). Compute a pulse from the *same* timestamps so sound and visual cannot drift:
-
-   ```java
-   // phase 0..1 within each beat; "lub" at 0 and a softer "dub" at ~0.22
-   float phase = ((now - lastBeatAt) % PERIOD_MS) / (float) PERIOD_MS;
-   float lub = (float) Math.exp(-Math.pow((phase - 0.00f) / 0.06f, 2));
-   float dub = 0.6f * (float) Math.exp(-Math.pow((phase - 0.22f) / 0.07f, 2));
-   float pulse = Math.min(1f, lub + dub);
-   float alpha = BASE_ALPHA + AMP_ALPHA * pulse;   // e.g. 0.18 + 0.25*pulse
-   ```
-   Fade `alpha` in on rush start and out on rush end (reuse `adrenalineRushStartedAt` / `adrenalineFilterEndedAt`).
-3. **Drawing it.** Two options:
-   - **Cheap (matches existing code):** nested `fill()` frames exactly like the Asphyxia overlay, but with a red ARGB colour (e.g. `0xD0101A`-ish) and the alpha above. Quick, but visibly stepped.
-   - **Better looking:** a `textures/misc/adrenaline_vignette.png` (transparent centre → red edges, soft radial gradient) drawn full-screen with the computed alpha tint. Needs the correct blit/sprite call for `GuiGraphicsExtractor` in 26.2 — **check the current method signature**, it was renamed from `GuiGraphics`.
-4. Tune a small constant offset between "beat started" and "pulse peak" by ear to hide audio latency.
-
-### 11.5 Adrenaline V2 — stacking shots, timing QTE, overdose  *(design spec — not built yet)*
+### 11.5 Adrenaline V2 — stacking shots, timing QTE, overdose  *(BUILT in round 5, untested in-game; numbers live in `AdrenalineRules.java`. Deviations from this spec: no vanilla item cooldown rendering, the bar shows the cooldown instead; a Totem of Undying saves the player from an overdose but leaves a 8 s stun, ends the rush, wipes the debt and locks shots for 60 s; creative players take the penalty but not the death; no new QTE sounds yet — the heartbeat and inject sounds are reused.)*
 
 This replaces the simple "use shot → rush → crash" flow in §5.1. It also fixes §10.3 (re-injecting no longer wipes the debt — debt now *accumulates* across the chain).
 
@@ -670,10 +602,95 @@ All on **2026-10-07** unless noted. "Owner" = project owner (non-programmer); "R
 | 1 | Jar decompiled, project reconstructed; 9 fixes: static post-effects + textures; tinnitus sound file; concussion fade; crash-filter fade tied to remaining time; burial asphyxia; sleep/hemorrhage; tetanus; hysteria phantom sounds; custom music folder | Owner's bug list | Compile-only |
 | 2 | Rusty tool models (tinted vanilla textures); `gradle.properties`; GitHub Actions workflow; build errors fixed in order: (a) `settings.gradle` `FAIL_ON_PROJECT_REPOS` blocked Loom's repository; (b) decompiler wrote `this instanceof Player` in the mixin | First real build | **Built OK; owner playtested: "almost everything up to expectation"** |
 | 2 feedback | Icons/textures: owner will supply their own art. Adrenaline music did not load. Wants loop until rush ends; inject/power-up/power-down SFX; rush filter ~half desaturated; red pulsing vignette + heartbeat | Playtest | — |
-| 3 | Music root causes fixed (stop-every-tick `else if`; nonexistent placeholder file; unmarkable stream); self-looping stream; 4 new synthesized sounds + registration; inject sound on server; filter level 5; vignette | Round-2 feedback | Built; owner: music works, other notes below |
+| 3 | Music root causes fixed (stop-every-tick `else if`; nonexistent placeholder file; unmarkable stream); self-looping stream; 4 new synthesized sounds + registration; inject sound on server; filter level 5; vignette; owner-supplied textures (effect icons 18×18) | Round-2 feedback | **Built OK; owner played it: music works** (gaps: §10.11) |
 | 3 feedback | Music was cancelled when a concussion started; hemorrhage unreliable/not sticking; rush not fast enough; jumping killed rush momentum; crash lacked weight | Playtest | — |
 | 4 | Music restarts muffled (18% → 100%) through a concussion instead of dying; hemorrhage rolled on confirmed Sharpness hits (50%), cured only by ≥2 HP heals/Regeneration/sleep, natural regen blocked while bleeding; rush speed +55% and client-side airborne momentum boost; crash tapers −55%→−19% with block-break/attack-speed/jump penalties, extra hunger drain, breathing loop and dark vignette; fracture jump-block also checks the synced effect (client has no server state) | Round-3 feedback | **Not built or played yet** |
 | — | Adrenaline V2 (§11.5) designed, not implemented | Owner wants it next | — |
+
+### 11.7 Adrenaline music pool — shuffle bag of 7 loops — *design + patch sketch, not built*
+
+**Current behaviour (from the jar):** `pickCustomMusic()` picks a random `.wav` from `config/ifaar/adrenaline_music/` and, if that folder has any, it **replaces** the bundled track entirely. The bundled track is a single hard-coded resource (`adrenaline.wav`). The pick happens **twice** per rush (`hasAdrenalineWave()` and again inside `getAudioStream`), so the file checked and the file played can differ.
+
+**Goal:** a pool of bundled loops plus any player-supplied loops, with **one pick per rush**, played as a **shuffle bag** (every track once before any repeat), and the chosen track kept for the whole rush.
+
+#### Bundled tracks (cleaned set, `IFAAR_adrenaline_music_pool.zip`)
+Put these in `assets/combatinjuries/sounds/adrenaline_music/` and list them in `tracks.txt` (one per line). Delete the old `adrenaline.wav` — `ultrakill_187.wav` is the identical audio.
+
+| File | Length | BPM | Notes |
+|---|---|---|---|
+| `breakcore_140.wav` | 6.854 s | 140 | 2.9 ms seam crossfade |
+| `distorted_165.wav` | 11.636 s | 165 | longest (~2 MB) |
+| `jubilation_169.wav` | 5.652 s | ~169 | silent tail trimmed, +6.6 dB |
+| `glitched_170.wav` | 5.644 s | 170 | 2.9 ms seam crossfade; check the loop point by ear |
+| `ultrakill_187.wav` | 2.567 s | ~187 | the previous bundled loop |
+| `uptempo_193.wav` | 4.974 s | 193 | |
+| `hardcore_204.wav` | 9.412 s | 204 | |
+
+All seven are 16-bit stereo 44.1 kHz, matched to **≈ −14 dB RMS with peaks ≤ −1 dBFS**; total ≈ 8 MB. Any new loop should be normalised to the same level or the volume will jump between rushes.
+
+#### Behaviour
+1. **Pool** = bundled tracks (from `tracks.txt`) **plus** every `*.wav` in `config/ifaar/adrenaline_music/` (player loops are *added*, not an override). Optional: a flag to use custom-only.
+2. **Shuffle bag:** shuffle the pool, play through it one track per rush, then reshuffle. The first track of a new round must differ from the last track of the previous round. With 7 tracks a given track can't return for at least 6 rushes (except across a round boundary, where the minimum gap is 1 rush).
+3. **Pick once** at rush start; hand the chosen `Track` to the sound instance. The track does **not** change mid-rush (including shot extensions in V2) unless V2 stack-tiering is implemented (below).
+4. The bag state is client-side and resets when the game restarts; if the pool changes (files added/removed) rebuild the bag.
+5. A pool of 1 simply repeats; a pool of 0 falls back to `SilentAudioStream` (no crash).
+
+#### Optional V2 tie-in: tempo ≈ intensity
+Tracks span 140 → 204 BPM, so they can be tiered by shot stack: stack 1 → `breakcore_140`; stacks 2–3 → the 165–193 group; stack 4 (the red trap bar) → `hardcore_204`. Needs a short crossfade between tracks when the stack changes, and `name|minStack` entries in `tracks.txt`. Not required for the shuffle bag.
+
+#### Patch sketch (`CombatInjuriesClient`; untested — adapt names to the real file)
+```java
+@FunctionalInterface private interface Opener { InputStream open() throws IOException; }
+private record Track(String name, Opener opener) {}
+private static final String MUSIC_BASE = "assets/combatinjuries/sounds/adrenaline_music/";
+private static final Deque<Track> musicBag = new ArrayDeque<>();
+private static String lastTrack;
+
+private static List<Track> trackPool() {
+    List<Track> pool = new ArrayList<>();
+    ClassLoader cl = CombatInjuriesClient.class.getClassLoader();
+    try (InputStream in = cl.getResourceAsStream(MUSIC_BASE + "tracks.txt")) {            // bundled
+        if (in != null) {
+            for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\\R")) {
+                String n = line.trim();
+                if (n.toLowerCase(Locale.ROOT).endsWith(".wav"))
+                    pool.add(new Track(n, () -> cl.getResourceAsStream(MUSIC_BASE + n)));
+            }
+        }
+    } catch (IOException ignored) {}
+    Path folder = musicFolder();                                                            // player-supplied
+    if (Files.isDirectory(folder)) {
+        try (Stream<Path> files = Files.list(folder)) {
+            files.filter(f -> f.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".wav")).sorted()
+                 .forEach(f -> pool.add(new Track("config:" + f.getFileName(), () -> Files.newInputStream(f))));
+        } catch (IOException ignored) {}
+    }
+    return pool;
+}
+
+private static Track nextTrack() {                     // shuffle bag
+    if (musicBag.isEmpty()) {
+        List<Track> pool = trackPool();
+        if (pool.isEmpty()) return null;
+        Collections.shuffle(pool);
+        if (pool.size() > 1 && pool.get(0).name().equals(lastTrack))   // no repeat across the round boundary
+            Collections.swap(pool, 0, pool.size() - 1);
+        musicBag.addAll(pool);
+    }
+    Track t = musicBag.poll();
+    lastTrack = t.name();
+    return t;
+}
+```
+- At rush start, where the code does `if (hasAdrenalineWave()) { …new AdrenalineMusicSoundInstance()… }`, use `Track t = nextTrack(); if (t != null) { …new AdrenalineMusicSoundInstance(t)… }`; delete `hasAdrenalineWave()` and `pickCustomMusic()`.
+- `AdrenalineMusicSoundInstance` takes a `Track`; in `getAudioStream` replace the `pickCustomMusic()` / resource logic with `InputStream in = track.opener().open();` (null → `SilentAudioStream`). The self-looping `AdrenalineWavAudioStream` is unchanged.
+- Update the auto-generated config-folder `README.txt` to say custom loops are **added** to the pool and should be level-matched (≈ −14 dB RMS) and seamless.
+
+#### Constraints to respect
+- Each track is decoded **fully into memory** (16-bit PCM, ~10 MB/min of stereo 44.1 kHz); only the selected track is decoded, so the longest bundled loop (11.6 s ≈ 2 MB) is fine. Keep loops under about a minute.
+- Only mono/stereo 16-bit-convertible WAV is supported. Loops must be **seamless** — the stream wraps with no gap, so a click at the seam repeats audibly.
+- Uncompressed WAV adds ≈ 8 MB to the jar for this set.
+- The rush heartbeat (600 ms ≈ 100 BPM) will not line up with 140–204 BPM loops; expected, but worth knowing when tuning the vignette/heartbeat feel.
 
 ---
 
@@ -692,6 +709,11 @@ All on **2026-10-07** unless noted. "Owner" = project owner (non-programmer); "R
 | 9 | Brew pufferfish onto Swiftness; trade with a level-5 cleric | Adrenaline Shot is produced |
 | 10 | Log out and back in mid-rush | Documents current behaviour (state lost) |
 | 11 | Check the log for `[IFAAR] Screen filter … failed to load` | Should be absent; if present, post-effect JSON/shader issue |
+| R3-a | Start a rush; watch the first second | Power-up swell + first heartbeat; **check whether the vignette is missing until the first beat** (§10.11-1) |
+| R3-b | End a rush | Power-down plays; vignette **fades or snaps?** (§10.11-1); breath cue overlap (§10.11-2) |
+| R3-c | Run/sprint during power-up/power-down sounds | Listen for the sound drifting to one side (§10.11-3) |
+| R3-d | Inject in survival with another player nearby | They hear `adrenaline_inject` |
+| R3-e | Let the loop run > 1 minute | No gap, stutter or silence at the loop point |
 | 12 | *(V2)* Inject shot 1; wait in cooldown, press | Nothing happens; cooldown sweep visible |
 | 13 | *(V2)* Press in the danger zone at stack 1–2 | Shock: short stun + crash, shot spent |
 | 14 | *(V2)* Press in the danger zone at stack 3 | Overdose death with the correct death message; Totem doesn't save you |
@@ -758,7 +780,7 @@ The owner has no local build environment. Builds run on **GitHub Actions**:
 |---|---|---|---|
 | `fracture_speed` | movement speed | −0.40 | fractured |
 | `adrenaline_rush_speed` | movement speed | +0.55 (`RUSH_SPEED_BONUS`) | rushing |
-| `adrenaline_crash_speed` | movement speed | −0.55 × (0.35 + 0.65 × remaining/300) (`CRASH_SPEED_PENALTY`), tapers as the crash ends | crashing |
+| `adrenaline_crash_speed` | movement speed | −0.55 × (0.35 + 0.65 × remaining/300) (`CRASH_SPEED_PENALTY`), tapers | crashing |
 | `adrenaline_rush_damage` | attack damage | +0.25 | rushing |
 | `hysteria_damage` | attack damage | +0.50 | hysteria |
 | `hysteria_knockback_resistance` | knockback resistance | +1.00 | hysteria |
@@ -775,3 +797,10 @@ The owner has no local build environment. Builds run on **GitHub Actions**:
 | Filter strengths | `post_effect/*.json` (§7.1) |
 | Filter fade speeds | `*_FILTER_FADE_*_MS` constants + literals in `updateCameraPostEffect` |
 | Loot odds | `LootTableEvents.MODIFY` (`0.01F`) |
+
+
+### 11.8 Concussion tiers (round 5)
+`applyConcussion(state, heavy)` in `CombatInjuries.java`. Heavy = 300 ticks (explosions, Warden, mace smash, sonic boom, anvil). Light = 120 ticks (iron golem). A light hit on an already-concussed player never shortens or downgrades it. The tier is the amplifier of the `concussion` effect (0 light, 1 heavy); `syncEffect` now re-adds an effect when its amplifier changes. The client scales haze, tinnitus volume/pitch and the fade-out length from the amplifier (`CombatInjuriesClient`, `SoundEngineHysteriaMixin`).
+
+### 11.9 Round 6 additions
+See CHANGES.md "Round 6". Unverified-API risks to check first if the build or game complains: `ItemCooldowns.addCooldown(ItemStack,int)` (server), `GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, texW, texH)` (client pop-ups), the `fabric:components` ingredient in `data/combatinjuries/recipe/adrenaline_shot.json` (a bad recipe only logs an error and is skipped), and `max_uses` in the cleric trade JSONs.
