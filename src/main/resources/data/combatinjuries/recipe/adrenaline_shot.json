@@ -1,9 +1,15 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "ingredients": [
-    "combatinjuries:syringe",
-    {
+  "pattern": [
+    "SPS",
+    "SFS",
+    "SSS"
+  ],
+  "key": {
+    "S": "combatinjuries:syringe",
+    "F": "minecraft:pufferfish",
+    "P": {
       "fabric:type": "fabric:components",
       "base": "minecraft:potion",
       "components": {
@@ -12,9 +18,9 @@
         }
       }
     }
-  ],
+  },
   "result": {
     "id": "combatinjuries:adrenaline_shot",
-    "count": 1
+    "count": 7
   }
 }

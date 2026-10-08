@@ -144,8 +144,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          if (var4 && !concussionWasActive) {
             concussionStartedAt = var2;
             var0.getSoundManager().stop();
-            if (var11 && adrenalineRushWasActive && hasAdrenalineWave()) {
-               adrenalineMusic = new CombatInjuriesClient.AdrenalineMusicSoundInstance();
+            if (var11 && adrenalineRushWasActive && currentTrack != null) {
+               adrenalineMusic = new CombatInjuriesClient.AdrenalineMusicSoundInstance(currentTrack);
                var0.getSoundManager().play(adrenalineMusic);
             }
          }
@@ -219,8 +219,9 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             adrenalineCrashFilterEndedAt = 0L;
             playCue(var0, CombatInjuries.ADRENALINE_POWER_UP, 1.0F, 1.0F);
             adrenalineBeatAt = var2 + 700L;
-            if (hasAdrenalineWave()) {
-               adrenalineMusic = new CombatInjuriesClient.AdrenalineMusicSoundInstance();
+            currentTrack = nextTrack();
+            if (currentTrack != null) {
+               adrenalineMusic = new CombatInjuriesClient.AdrenalineMusicSoundInstance(currentTrack);
                var0.getSoundManager().play(adrenalineMusic);
             }
          } else if (!var11 && adrenalineRushWasActive) {
@@ -311,7 +312,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             Files.writeString(
                readme,
                "Drop your own adrenaline rush music here as .wav files (mono or stereo PCM).\n"
-                  + "If there are several, one is picked at random each time an adrenaline rush starts.\n"
+                  + "These are ADDED to the built-in tracks. Tracks are shuffled so none repeats until all have played.\n"
                   + "It loops during Adrenaline Rush and stops when the rush ends.\n"
             );
          }
@@ -320,22 +321,90 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       }
    }
 
-   private static Path pickCustomMusic() {
-      Path folder = musicFolder();
-      if (!Files.isDirectory(folder)) {
-         return null;
+   private static final class MusicTrack {
+      private final String name;
+      private final Path file;
+      private final String resource;
+
+      private MusicTrack(String name, Path file, String resource) {
+         this.name = name;
+         this.file = file;
+         this.resource = resource;
       }
 
-      try (java.util.stream.Stream<Path> files = Files.list(folder)) {
-         List<Path> wavs = files.filter(file -> file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".wav")).sorted().toList();
-         return wavs.isEmpty() ? null : wavs.get(ThreadLocalRandom.current().nextInt(wavs.size()));
-      } catch (IOException var2) {
-         return null;
+      private InputStream open() throws IOException {
+         if (this.file != null) {
+            return Files.newInputStream(this.file);
+         }
+
+         InputStream in = CombatInjuriesClient.class.getClassLoader().getResourceAsStream(this.resource);
+         if (in == null) {
+            throw new IOException("Missing bundled track " + this.resource);
+         }
+
+         return in;
       }
    }
 
-   private static boolean hasAdrenalineWave() {
-      return pickCustomMusic() != null || CombatInjuriesClient.class.getClassLoader().getResource("assets/combatinjuries/sounds/adrenaline_music/adrenaline.wav") != null;
+   private static final String MUSIC_BASE = "assets/combatinjuries/sounds/adrenaline_music/";
+   private static final java.util.ArrayDeque<MusicTrack> musicBag = new java.util.ArrayDeque<>();
+   private static String lastTrackName = "";
+   private static MusicTrack currentTrack;
+
+   /** Bundled loops (listed in tracks.txt) plus any .wav the player drops into config/ifaar/adrenaline_music. */
+   private static List<MusicTrack> trackPool() {
+      List<MusicTrack> pool = new java.util.ArrayList<>();
+      try (InputStream in = CombatInjuriesClient.class.getClassLoader().getResourceAsStream(MUSIC_BASE + "tracks.txt")) {
+         if (in != null) {
+            for (String line : new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).split("\\R")) {
+               String n = line.trim();
+               if (n.toLowerCase(Locale.ROOT).endsWith(".wav")) {
+                  pool.add(new MusicTrack(n, null, MUSIC_BASE + n));
+               }
+            }
+         }
+      } catch (IOException ignored) {
+      }
+
+      Path folder = musicFolder();
+      if (Files.isDirectory(folder)) {
+         try (java.util.stream.Stream<Path> files = Files.list(folder)) {
+            for (Path f : files.filter(file -> file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".wav")).sorted().toList()) {
+               pool.add(new MusicTrack("config:" + f.getFileName(), f, null));
+            }
+         } catch (IOException ignored) {
+         }
+      }
+
+      return pool;
+   }
+
+   /** Shuffle bag: every track plays once before any repeats, and a new round never starts with the track that just played. */
+   private static MusicTrack nextTrack() {
+      List<MusicTrack> pool = trackPool();
+      if (pool.isEmpty()) {
+         return null;
+      }
+
+      java.util.Set<String> names = new java.util.HashSet<>();
+      for (MusicTrack t : pool) {
+         names.add(t.name);
+      }
+
+      musicBag.removeIf(t -> !names.contains(t.name));
+      if (musicBag.isEmpty()) {
+         List<MusicTrack> shuffled = new java.util.ArrayList<>(pool);
+         int guard = 0;
+         do {
+            java.util.Collections.shuffle(shuffled);
+            guard++;
+         } while (shuffled.size() > 1 && shuffled.get(0).name.equals(lastTrackName) && guard < 20);
+         musicBag.addAll(shuffled);
+      }
+
+      MusicTrack next = musicBag.poll();
+      lastTrackName = next.name;
+      return next;
    }
 
    private static void playPhantomSound(Minecraft var0) {
@@ -440,6 +509,11 @@ public final class CombatInjuriesClient implements ClientModInitializer {
     * Annoying fake pop-up windows from the third shot on. They stay on the left/center of the screen and are drawn
     * BEFORE the timing bar, and never in the right-hand strip where the bar lives, so they can never hide it.
     */
+   /** Pop-ups are drawn smaller on bigger-looking screens: about a fifth of the screen width at most. */
+   private static float popupScale(int screenWidth) {
+      return Math.max(0.2F, Math.min(0.7F, screenWidth * 0.2F / 279.0F));
+   }
+
    private static void renderPopups(GuiGraphicsExtractor var0, int w, int h, long now) {
       Minecraft mc = Minecraft.getInstance();
       LocalPlayer player = mc.player;
@@ -463,8 +537,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
                int img = rnd.nextInt(POPUP_SIZE.length);
                int pw = POPUP_SIZE[img][0];
                int ph = POPUP_SIZE[img][1];
-               int maxX = Math.max(4, w - 60 - pw);
-               int maxY = Math.max(4, h - ph - 20);
+               int maxX = Math.max(4, w - 60 - (int)(pw * popupScale(w)));
+               int maxY = Math.max(4, h - (int)(ph * popupScale(w)) - 20);
                POPUP_IMG[i] = img;
                POPUP_X[i] = rnd.nextInt(4, maxX + 1);
                POPUP_Y[i] = rnd.nextInt(4, maxY + 1);
@@ -485,9 +559,29 @@ public final class CombatInjuriesClient implements ClientModInitializer {
                Identifier tex = Identifier.fromNamespaceAndPath("combatinjuries", "textures/gui/popup_" + (img + 1) + ".png");
                int pw = POPUP_SIZE[img][0];
                int ph = POPUP_SIZE[img][1];
-               var0.blit(RenderPipelines.GUI_TEXTURED, tex, POPUP_X[i], POPUP_Y[i], 0.0F, 0.0F, pw, ph, pw, ph);
+               int sw = Math.max(1, (int)(pw * popupScale(w)));
+               int sh = Math.max(1, (int)(ph * popupScale(w)));
+               var0.blit(RenderPipelines.GUI_TEXTURED, tex, POPUP_X[i], POPUP_Y[i], 0, 0, sw, sh, pw, ph, pw, ph);
             }
          }
+      }
+   }
+
+   /** Smooth edge darkening: many thin frames whose strength falls off quadratically toward the centre. */
+   private static void drawVignette(GuiGraphicsExtractor g, int w, int h, int depth, float strength, int rgb) {
+      int step = 2;
+      for (int i = 0; i < depth; i += step) {
+         float f = 1.0F - (float)i / (float)depth;
+         int a = Math.min(255, (int)(strength * 255.0F * f * f));
+         if (a <= 0) {
+            break;
+         }
+
+         int c = a << 24 | rgb;
+         g.fill(i, i, w - i, i + step, c);
+         g.fill(i, h - i - step, w - i, h - i, c);
+         g.fill(i, i + step, i + step, h - i - step, c);
+         g.fill(w - i - step, i + step, w - i, h - i - step, c);
       }
    }
 
@@ -548,15 +642,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             float cvSlow = (float)(0.5 + 0.5 * Math.sin(var4 / 700.0));
             float cvStrength = (0.22F + 0.14F * cvSlow) * (0.35F + 0.65F * cvWeight);
 
-            for (int cvLayer = 0; cvLayer < 8; cvLayer++) {
-               int cvInset = cvLayer * 9;
-               int cvThick = 9;
-               int cvColor = (int)(cvStrength * 255.0F * (8 - cvLayer) / 8.0F) << 24;
-               var0.fill(cvInset, cvInset, var9 - cvInset, cvInset + cvThick, cvColor);
-               var0.fill(cvInset, var10 - cvInset - cvThick, var9 - cvInset, var10 - cvInset, cvColor);
-               var0.fill(cvInset, cvInset + cvThick, cvInset + cvThick, var10 - cvInset - cvThick, cvColor);
-               var0.fill(var9 - cvInset - cvThick, cvInset + cvThick, var9 - cvInset, var10 - cvInset - cvThick, cvColor);
-            }
+            drawVignette(var0, var9, var10, 80, cvStrength, 0x000000);
          }
 
          if (var3.hasEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT) && lastHeartbeatAt > 0L) {
@@ -567,16 +653,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             int rvStack = Math.max(1, lastRushShots);
             float rvStrength = Math.min(0.85F, (0.16F + 0.30F * rvPulse + 0.06F * (rvStack - 1)) * rvFadeIn);
 
-            for (int rvLayer = 0; rvLayer < 8; rvLayer++) {
-               int rvInset = rvLayer * (9 + 5 * (rvStack - 1));
-               int rvThick = 9 + 5 * (rvStack - 1);
-               int rvAlpha = (int)(rvStrength * 255.0F * (8 - rvLayer) / 8.0F);
-               int rvColor = rvAlpha << 24 | 0xB0101A;
-               var0.fill(rvInset, rvInset, var9 - rvInset, rvInset + rvThick, rvColor);
-               var0.fill(rvInset, var10 - rvInset - rvThick, var9 - rvInset, var10 - rvInset, rvColor);
-               var0.fill(rvInset, rvInset + rvThick, rvInset + rvThick, var10 - rvInset - rvThick, rvColor);
-               var0.fill(var9 - rvInset - rvThick, rvInset + rvThick, var9 - rvInset, var10 - rvInset - rvThick, rvColor);
-            }
+            drawVignette(var0, var9, var10, 80 + 36 * (rvStack - 1), rvStrength, 0xB0101A);
          }
 
          if (finalFlashAt > 0L) {
@@ -595,34 +672,43 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             int bShots = barFx.getAmplifier() + 1;
             int bSeg = AdrenalineRules.segmentTicks(bShots);
             boolean bRed = bShots >= AdrenalineRules.MAX_SHOTS;
-            int bH = 140;
-            int bW = 8;
-            int bX = var9 - 18;
+            int bH = 150;
+            int bW = 12;
+            int bX = var9 - 26;
             int bY = (var10 - bH) / 2;
             int cdH = bH * AdrenalineRules.COOLDOWN_TICKS / bSeg;
             int winH = bH * AdrenalineRules.WINDOW_TICKS / bSeg;
-            float bPulse = (float)(0.5 + 0.5 * Math.sin(var4 / (bRed ? 90.0 : 160.0)));
             boolean bInWindow = AdrenalineRules.zoneFor(bShots, barFx.getDuration()) == AdrenalineRules.Zone.WINDOW;
-            int dangerColor = bRed ? 0xFF8A1818 : 0xFFD9822B;
-            int windowColor = bRed ? (bInWindow ? 0xFFFF2A2A : 0xFFC02020) : (bInWindow ? 0xFF3CE06A : 0xFF2FA350);
-            var0.fill(bX - 2, bY - 2, bX + bW + 2, bY + bH + 2, 0xB0000000);
-            var0.fill(bX, bY, bX + bW, bY + cdH, 0xFF6E6E6E);
-            var0.fill(bX, bY + cdH, bX + bW, bY + bH - winH, dangerColor);
-            var0.fill(bX, bY + bH - winH, bX + bW, bY + bH, windowColor);
-            if (bInWindow) {
-               int glow = (int)(90.0F * bPulse) << 24 | (bRed ? 0xFF2A2A : 0x3CE06A);
-               var0.fill(bX - 5, bY + bH - winH - 3, bX + bW + 5, bY + bH + 3, glow);
+            boolean bFlash = (var4 / (bRed ? 70L : 110L)) % 2L == 0L;
+            // hard frame: black outer, grey bevel, black inner
+            var0.fill(bX - 4, bY - 4, bX + bW + 4, bY + bH + 4, 0xFF000000);
+            var0.fill(bX - 3, bY - 3, bX + bW + 3, bY + bH + 3, 0xFF8A8A8A);
+            var0.fill(bX - 2, bY - 2, bX + bW + 2, bY + bH + 2, 0xFF000000);
+            // cooldown: dark with tick marks
+            var0.fill(bX, bY, bX + bW, bY + cdH, 0xFF232323);
+            for (int ty = bY + 4; ty < bY + cdH; ty += 8) {
+               var0.fill(bX + 2, ty, bX + bW - 2, ty + 1, 0xFF555555);
             }
 
+            // danger: hazard stripes
+            int stripeA = bRed ? 0xFFC01212 : 0xFFF2C200;
+            int dTop = bY + cdH;
+            int dBot = bY + bH - winH;
+            for (int sy = dTop; sy < dBot; sy += 6) {
+               int stripe = ((sy - dTop) / 6) % 2 == 0 ? stripeA : 0xFF0C0C0C;
+               var0.fill(bX, sy, bX + bW, Math.min(dBot, sy + 6), stripe);
+            }
+
+            // window: solid and flashing while it is open
+            int windowOn = bRed ? 0xFFFF2222 : 0xFF2CFF6B;
+            int windowOff = bRed ? 0xFF6E0C0C : 0xFF0F6E2B;
+            var0.fill(bX, dBot, bX + bW, bY + bH, bInWindow && bFlash ? windowOn : (bInWindow ? windowOff : (bRed ? 0xFFA31515 : 0xFF1FA64B)));
+            var0.fill(bX, dBot, bX + bW, dBot + 2, 0xFFFFFFFF);
+            // marker
             float bFrac = Math.max(0.0F, Math.min(1.0F, 1.0F - barFx.getDuration() / (float)bSeg));
-            int bMark = bY + (int)(bFrac * (bH - 2));
-            var0.fill(bX - 5, bMark, bX + bW + 5, bMark + 3, 0xFFFFFFFF);
-
-            for (int pip = 0; pip < AdrenalineRules.MAX_SHOTS; pip++) {
-               int pipY = bY - 14 + 0;
-               int pipX = bX - 6 + pip * 6;
-               var0.fill(pipX, pipY, pipX + 4, pipY + 4, pip < bShots ? (bRed ? 0xFFFF3030 : 0xFFFFFFFF) : 0x80000000);
-            }
+            int bMark = bY + (int)(bFrac * (bH - 3));
+            var0.fill(bX - 7, bMark - 1, bX + bW + 7, bMark + 4, 0xFF000000);
+            var0.fill(bX - 6, bMark, bX + bW + 6, bMark + 3, 0xFFFFFFFF);
          }
 
          if (var3.hasEffect(CombatInjuries.STUN_EFFECT)) {
@@ -647,8 +733,11 @@ public final class CombatInjuriesClient implements ClientModInitializer {
    }
 
    private static final class AdrenalineMusicSoundInstance extends AbstractTickableSoundInstance implements FabricSoundInstance {
-      private AdrenalineMusicSoundInstance() {
+      private final MusicTrack track;
+
+      private AdrenalineMusicSoundInstance(MusicTrack track) {
          super(CombatInjuries.ADRENALINE_MUSIC, SoundSource.MUSIC, SoundInstance.createUnseededRandom());
+         this.track = track;
          this.looping = true;
          this.attenuation = Attenuation.NONE;
          this.relative = true;
@@ -670,16 +759,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
 
       public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary var1, Identifier var2, boolean var3) {
          try {
-            Path custom = CombatInjuriesClient.pickCustomMusic();
-            InputStream var4 = custom != null
-               ? Files.newInputStream(custom)
-               : CombatInjuriesClient.class.getClassLoader().getResourceAsStream("assets/combatinjuries/sounds/adrenaline_music/adrenaline.wav");
-            if (var4 == null) {
-               throw new IOException("No adrenaline .wav found in config/ifaar/adrenaline_music or the mod jar");
-            } else {
-               Object var5 = new CombatInjuriesClient.AdrenalineWavAudioStream(var4);
-               return CompletableFuture.completedFuture((AudioStream)var5);
-            }
+            Object var5 = new CombatInjuriesClient.AdrenalineWavAudioStream(this.track.open());
+            return CompletableFuture.completedFuture((AudioStream)var5);
          } catch (IOException var6) {
             return CompletableFuture.completedFuture(new CombatInjuriesClient.SilentAudioStream());
          }

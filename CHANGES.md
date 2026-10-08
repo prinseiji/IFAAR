@@ -56,3 +56,11 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Stun after a perfect chain** shortened to 3 s.
 - **Shots stack to 16** and now use the vanilla item cooldown (greys out like an ender pearl, 10 s).
 - **Syringe** item (glass bottle + iron nugget, shapeless). **Adrenaline shot** recipe: syringe + Potion of Swiftness II (strong_swiftness), shapeless, via Fabric's `fabric:components` ingredient. Cleric trades kept, limited to 2 uses each. The syringe texture is a grey placeholder made from the shot art.
+
+## Round 7
+
+- **Music pool.** 7 normalised loops (about -14 dB RMS, seam crossfaded, tails trimmed) in `sounds/adrenaline_music/`, listed in `tracks.txt`: breakcore_140, ultrakill_187, glitched_170, jubilation_169, distorted_165, hardcore_204, uptempo_193. One track is picked per rush as a shuffle bag (all play once before any repeat). `.wav` files in `config/ifaar/adrenaline_music/` are ADDED to the pool. The old single `adrenaline.wav` was removed (identical to ultrakill_187). A concussion mid-rush restarts the SAME track.
+- **Pop-ups** drawn at about 20% of the screen width at most (scale 0.2-0.7).
+- **Vignette** (rush and crash) is now drawn as many thin 2 px frames with a quadratic falloff, so no visible bands.
+- **Timing bar** restyled to a hard-edged look: black/grey bevel frame, tick-marked cooldown, hazard-striped danger zone (red stripes at stack 4), flashing window, white marker with a black outline. The shot-count pips were removed. No textures needed - it is all drawn in code (`renderOverlays`).
+- **Adrenaline shot recipe** is now shaped: 7 syringes around a Swiftness II potion (top middle) and a pufferfish (centre) give **7 shots**. The syringe recipe is unchanged.

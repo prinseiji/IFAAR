@@ -607,7 +607,7 @@ All on **2026-10-07** unless noted. "Owner" = project owner (non-programmer); "R
 | 4 | Music restarts muffled (18% → 100%) through a concussion instead of dying; hemorrhage rolled on confirmed Sharpness hits (50%), cured only by ≥2 HP heals/Regeneration/sleep, natural regen blocked while bleeding; rush speed +55% and client-side airborne momentum boost; crash tapers −55%→−19% with block-break/attack-speed/jump penalties, extra hunger drain, breathing loop and dark vignette; fracture jump-block also checks the synced effect (client has no server state) | Round-3 feedback | **Not built or played yet** |
 | — | Adrenaline V2 (§11.5) designed, not implemented | Owner wants it next | — |
 
-### 11.7 Adrenaline music pool — shuffle bag of 7 loops — *design + patch sketch, not built*
+### 11.7 Adrenaline music pool — shuffle bag of 7 loops — *BUILT in round 7 (the patch sketch below is the original design; the real code is `trackPool()`/`nextTrack()` in `CombatInjuriesClient`)*
 
 **Current behaviour (from the jar):** `pickCustomMusic()` picks a random `.wav` from `config/ifaar/adrenaline_music/` and, if that folder has any, it **replaces** the bundled track entirely. The bundled track is a single hard-coded resource (`adrenaline.wav`). The pick happens **twice** per rush (`hasAdrenalineWave()` and again inside `getAudioStream`), so the file checked and the file played can differ.
 
@@ -804,3 +804,6 @@ The owner has no local build environment. Builds run on **GitHub Actions**:
 
 ### 11.9 Round 6 additions
 See CHANGES.md "Round 6". Unverified-API risks to check first if the build or game complains: `ItemCooldowns.addCooldown(ItemStack,int)` (server), `GuiGraphicsExtractor.blit(RenderPipelines.GUI_TEXTURED, id, x, y, u, v, w, h, texW, texH)` (client pop-ups), the `fabric:components` ingredient in `data/combatinjuries/recipe/adrenaline_shot.json` (a bad recipe only logs an error and is skipped), and `max_uses` in the cleric trade JSONs.
+
+### 11.10 Round 7 additions
+See CHANGES.md "Round 7". The timing bar no longer shows shot pips and needs no texture files. Open: the stack-tiered music idea from 11.7 (tempo = intensity) is not built; the pitch-rise toward the window is.
