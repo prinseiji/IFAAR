@@ -64,3 +64,8 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Vignette** (rush and crash) is now drawn as many thin 2 px frames with a quadratic falloff, so no visible bands.
 - **Timing bar** restyled to a hard-edged look: black/grey bevel frame, tick-marked cooldown, hazard-striped danger zone (red stripes at stack 4), flashing window, white marker with a black outline. The shot-count pips were removed. No textures needed - it is all drawn in code (`renderOverlays`).
 - **Adrenaline shot recipe** is now shaped: 7 syringes around a Swiftness II potion (top middle) and a pufferfish (centre) give **7 shots**. The syringe recipe is unchanged.
+- **Bar is now a syringe.** `textures/gui/syringe_bar.png` (24x64, cropped from the owner's 64x64 art) is drawn at the right edge, sized to about a third of the screen height. The timeline runs down the barrel (plunger = start, needle = end) with translucent zone tints over the art. To swap the art, keep the barrel at x 8-16, y 14-44 of the 24x64 image, or change the four numbers in `renderOverlays`. Pop-ups keep clear of a wider right-hand strip (120 px).
+
+## Round 7b
+
+- **Syringe bar.** The timing bar is now your bloody syringe texture (`textures/gui/syringe_bar.png`, cropped to 24x64), drawn at about a third of the screen height. The plunger at the top is the start of the rush and the needle is the end. The coloured zones (dark cooldown, amber danger, green window; red at stack 4) are tinted over the barrel, and a white marker line moves down it. Texture supplied by the owner from another project - confirm you have the right to ship it.

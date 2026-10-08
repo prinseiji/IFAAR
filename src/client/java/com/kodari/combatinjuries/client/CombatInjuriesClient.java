@@ -537,7 +537,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
                int img = rnd.nextInt(POPUP_SIZE.length);
                int pw = POPUP_SIZE[img][0];
                int ph = POPUP_SIZE[img][1];
-               int maxX = Math.max(4, w - 60 - (int)(pw * popupScale(w)));
+               int maxX = Math.max(4, w - 120 - (int)(pw * popupScale(w)));
                int maxY = Math.max(4, h - (int)(ph * popupScale(w)) - 20);
                POPUP_IMG[i] = img;
                POPUP_X[i] = rnd.nextInt(4, maxX + 1);
@@ -672,43 +672,32 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             int bShots = barFx.getAmplifier() + 1;
             int bSeg = AdrenalineRules.segmentTicks(bShots);
             boolean bRed = bShots >= AdrenalineRules.MAX_SHOTS;
-            int bH = 150;
-            int bW = 12;
-            int bX = var9 - 26;
-            int bY = (var10 - bH) / 2;
-            int cdH = bH * AdrenalineRules.COOLDOWN_TICKS / bSeg;
-            int winH = bH * AdrenalineRules.WINDOW_TICKS / bSeg;
             boolean bInWindow = AdrenalineRules.zoneFor(bShots, barFx.getDuration()) == AdrenalineRules.Zone.WINDOW;
             boolean bFlash = (var4 / (bRed ? 70L : 110L)) % 2L == 0L;
-            // hard frame: black outer, grey bevel, black inner
-            var0.fill(bX - 4, bY - 4, bX + bW + 4, bY + bH + 4, 0xFF000000);
-            var0.fill(bX - 3, bY - 3, bX + bW + 3, bY + bH + 3, 0xFF8A8A8A);
-            var0.fill(bX - 2, bY - 2, bX + bW + 2, bY + bH + 2, 0xFF000000);
-            // cooldown: dark with tick marks
-            var0.fill(bX, bY, bX + bW, bY + cdH, 0xFF232323);
-            for (int ty = bY + 4; ty < bY + cdH; ty += 8) {
-               var0.fill(bX + 2, ty, bX + bW - 2, ty + 1, 0xFF555555);
-            }
-
-            // danger: hazard stripes
-            int stripeA = bRed ? 0xFFC01212 : 0xFFF2C200;
-            int dTop = bY + cdH;
-            int dBot = bY + bH - winH;
-            for (int sy = dTop; sy < dBot; sy += 6) {
-               int stripe = ((sy - dTop) / 6) % 2 == 0 ? stripeA : 0xFF0C0C0C;
-               var0.fill(bX, sy, bX + bW, Math.min(dBot, sy + 6), stripe);
-            }
-
-            // window: solid and flashing while it is open
-            int windowOn = bRed ? 0xFFFF2222 : 0xFF2CFF6B;
-            int windowOff = bRed ? 0xFF6E0C0C : 0xFF0F6E2B;
-            var0.fill(bX, dBot, bX + bW, bY + bH, bInWindow && bFlash ? windowOn : (bInWindow ? windowOff : (bRed ? 0xFFA31515 : 0xFF1FA64B)));
-            var0.fill(bX, dBot, bX + bW, dBot + 2, 0xFFFFFFFF);
-            // marker
+            // The bar is a bloody syringe (textures/gui/syringe_bar.png, 24x64). The timeline runs down the barrel,
+            // plunger (top) = rush start, needle (bottom) = rush end. Coloured zones are tinted over the barrel.
+            float sc = Math.max(1.0F, var10 * 0.34F / 64.0F);
+            int sw = (int)(24 * sc);
+            int sh = (int)(64 * sc);
+            int sx = var9 - sw - 8;
+            int sy = (var10 - sh) / 2;
+            var0.blit(RenderPipelines.GUI_TEXTURED, Identifier.fromNamespaceAndPath("combatinjuries", "textures/gui/syringe_bar.png"), sx, sy, 0, 0, sw, sh, 24, 64, 24, 64);
+            int barX0 = sx + (int)(8 * sc);
+            int barX1 = sx + (int)(16 * sc);
+            int barY0 = sy + (int)(14 * sc);
+            int barH = (int)(30 * sc);
+            int cdH = barH * AdrenalineRules.COOLDOWN_TICKS / bSeg;
+            int winH = barH * AdrenalineRules.WINDOW_TICKS / bSeg;
+            int dangerTop = barY0 + cdH;
+            int windowTop = barY0 + barH - winH;
+            var0.fill(barX0, barY0, barX1, dangerTop, 0xA0000000);
+            var0.fill(barX0, dangerTop, barX1, windowTop, bRed ? 0x90FF3A00 : 0x90FFB000);
+            int windowColor = bInWindow ? (bFlash ? (bRed ? 0xF0FF2222 : 0xF02CFF6B) : (bRed ? 0xB0801010 : 0xB0108A34)) : (bRed ? 0x80FF2222 : 0x802CFF6B);
+            var0.fill(barX0, windowTop, barX1, barY0 + barH, windowColor);
             float bFrac = Math.max(0.0F, Math.min(1.0F, 1.0F - barFx.getDuration() / (float)bSeg));
-            int bMark = bY + (int)(bFrac * (bH - 3));
-            var0.fill(bX - 7, bMark - 1, bX + bW + 7, bMark + 4, 0xFF000000);
-            var0.fill(bX - 6, bMark, bX + bW + 6, bMark + 3, 0xFFFFFFFF);
+            int bMark = barY0 + (int)(bFrac * (barH - 2));
+            var0.fill(barX0 - 4, bMark - 1, barX1 + 4, bMark + 3, 0xFF000000);
+            var0.fill(barX0 - 3, bMark, barX1 + 3, bMark + 2, 0xFFFFFFFF);
          }
 
          if (var3.hasEffect(CombatInjuries.STUN_EFFECT)) {
