@@ -83,6 +83,11 @@ public final class CombatInjuries implements ModInitializer {
    public static final String MOD_ID = "combatinjuries";
    private static final String RUSTY_MARKER = "combatinjuries_rusty";
    private static final double TETANUS_CHANCE = 0.25;
+   private static final double HEMORRHAGE_BASE_CHANCE = 0.50;
+   private static final float HEMORRHAGE_CURE_HEAL = 2.0F;
+   private static final boolean BLEEDING_BLOCKS_REGEN = true;
+   private static final double RUSH_SPEED_BONUS = 0.55;
+   private static final double CRASH_SPEED_PENALTY = 0.55;
    private static final java.util.Set<String> RUSTY_TOOL_PATHS = java.util.Set.of(
       "iron_sword", "iron_axe", "iron_pickaxe", "iron_shovel", "iron_hoe",
       "copper_sword", "copper_axe", "copper_pickaxe", "copper_shovel", "copper_hoe"
@@ -104,6 +109,9 @@ public final class CombatInjuries implements ModInitializer {
    private static final Identifier FRACTURE_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "fracture_speed");
    private static final Identifier RUSH_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_rush_speed");
    private static final Identifier CRASH_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_crash_speed");
+   private static final Identifier CRASH_FATIGUE_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_crash_fatigue");
+   private static final Identifier CRASH_ATTACK_SPEED_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_crash_attack_speed");
+   private static final Identifier CRASH_JUMP_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_crash_jump");
    private static final Identifier RUSH_DAMAGE_ID = Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_rush_damage");
    private static final Identifier HYSTERIA_DAMAGE_ID = Identifier.fromNamespaceAndPath("combatinjuries", "hysteria_damage");
    private static final Identifier HYSTERIA_KNOCKBACK_ID = Identifier.fromNamespaceAndPath("combatinjuries", "hysteria_knockback_resistance");
@@ -268,24 +276,7 @@ public final class CombatInjuries implements ModInitializer {
          return InteractionResult.PASS;
       } else if (var5.getHealth() > 4.0F && state(var5).concussionTicks > 0 && Math.random() < 0.2) {
          return InteractionResult.FAIL;
-      } else if (!(var3 instanceof ServerPlayer var6)) {
-         return InteractionResult.PASS;
       } else {
-         Reference var7 = var1.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SHARPNESS);
-         if (EnchantmentHelper.getItemEnchantmentLevel(var7, var5.getItemInHand(var2)) > 0) {
-            Reference var8 = var1.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.PROTECTION);
-            int var9 = 0;
-
-            for (EquipmentSlot var13 : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-               var9 += EnchantmentHelper.getItemEnchantmentLevel(var8, var6.getItemBySlot(var13));
-            }
-
-            double var14 = Math.max(0.05, 0.3 - var9 * 0.03 - (var6.hasEffect(MobEffects.RESISTANCE) ? 0.03 : 0.0));
-            if (Math.random() < var14) {
-               state(var6).hemorrhage = true;
-            }
-         }
-
          return InteractionResult.PASS;
       }
    }
@@ -467,6 +458,23 @@ public final class CombatInjuries implements ModInitializer {
             applyWinded(var5, var6);
          }
 
+         if (var14 instanceof LivingEntity bleeder && var3 > 0.0F) {
+            Reference sharp = var5.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.SHARPNESS);
+            if (EnchantmentHelper.getItemEnchantmentLevel(sharp, bleeder.getMainHandItem()) > 0) {
+               Reference prot = var5.level().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.PROTECTION);
+               int protLevels = 0;
+
+               for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+                  protLevels += EnchantmentHelper.getItemEnchantmentLevel(prot, var5.getItemBySlot(slot));
+               }
+
+               double bleedChance = Math.max(0.05, HEMORRHAGE_BASE_CHANCE - protLevels * 0.03 - (var5.hasEffect(MobEffects.RESISTANCE) ? 0.03 : 0.0));
+               if (Math.random() < bleedChance) {
+                  var6.hemorrhage = true;
+               }
+            }
+         }
+
          if (var14 instanceof LivingEntity var15 && isRustySource(var15) && Math.random() < TETANUS_CHANCE) {
             var6.tetanus = true;
          }
@@ -540,8 +548,12 @@ public final class CombatInjuries implements ModInitializer {
       }
 
       float var10 = var0.getHealth();
-      if (var10 > var1.previousHealth) {
+      float healthGained = var10 - var1.previousHealth;
+      if (healthGained >= HEMORRHAGE_CURE_HEAL) {
          var1.hemorrhage = false;
+      } else if (healthGained > 0.0F && var1.hemorrhage && BLEEDING_BLOCKS_REGEN && !var0.hasEffect(MobEffects.REGENERATION)) {
+         var0.setHealth(var1.previousHealth);
+         var10 = var1.previousHealth;
       }
 
       var1.previousHealth = var10;
@@ -592,9 +604,9 @@ public final class CombatInjuries implements ModInitializer {
          }
 
          if (var1.adrenalineRushTicks > 0) {
-            var3.addTransientModifier(new AttributeModifier(RUSH_SPEED_ID, 0.3, Operation.ADD_MULTIPLIED_TOTAL));
+            var3.addTransientModifier(new AttributeModifier(RUSH_SPEED_ID, RUSH_SPEED_BONUS, Operation.ADD_MULTIPLIED_TOTAL));
          } else if (var1.adrenalineCrashTicks > 0) {
-            var3.addTransientModifier(new AttributeModifier(CRASH_SPEED_ID, -0.4, Operation.ADD_MULTIPLIED_TOTAL));
+            var3.addTransientModifier(new AttributeModifier(CRASH_SPEED_ID, -CRASH_SPEED_PENALTY * (0.35 + 0.65 * var1.adrenalineCrashTicks / 300.0), Operation.ADD_MULTIPLIED_TOTAL));
          }
       }
 
@@ -616,6 +628,31 @@ public final class CombatInjuries implements ModInitializer {
          var5.removeModifier(HYSTERIA_KNOCKBACK_ID);
          if (var1.hysteria) {
             var5.addTransientModifier(new AttributeModifier(HYSTERIA_KNOCKBACK_ID, 1.0, Operation.ADD_MULTIPLIED_TOTAL));
+         }
+      }
+
+      float crashWeight = var1.adrenalineCrashTicks > 0 ? 0.35F + 0.65F * var1.adrenalineCrashTicks / 300.0F : 0.0F;
+      AttributeInstance crashBreak = var0.getAttribute(Attributes.BLOCK_BREAK_SPEED);
+      if (crashBreak != null) {
+         crashBreak.removeModifier(CRASH_FATIGUE_ID);
+         if (crashWeight > 0.0F) {
+            crashBreak.addTransientModifier(new AttributeModifier(CRASH_FATIGUE_ID, -0.5 * crashWeight, Operation.ADD_MULTIPLIED_TOTAL));
+         }
+      }
+
+      AttributeInstance crashSwing = var0.getAttribute(Attributes.ATTACK_SPEED);
+      if (crashSwing != null) {
+         crashSwing.removeModifier(CRASH_ATTACK_SPEED_ID);
+         if (crashWeight > 0.0F) {
+            crashSwing.addTransientModifier(new AttributeModifier(CRASH_ATTACK_SPEED_ID, -0.35 * crashWeight, Operation.ADD_MULTIPLIED_TOTAL));
+         }
+      }
+
+      AttributeInstance crashJump = var0.getAttribute(Attributes.JUMP_STRENGTH);
+      if (crashJump != null) {
+         crashJump.removeModifier(CRASH_JUMP_ID);
+         if (crashWeight > 0.0F) {
+            crashJump.addTransientModifier(new AttributeModifier(CRASH_JUMP_ID, -0.3 * crashWeight, Operation.ADD_MULTIPLIED_TOTAL));
          }
       }
 
@@ -680,6 +717,7 @@ public final class CombatInjuries implements ModInitializer {
          }
       } else if (var1.adrenalineCrashTicks > 0) {
          var1.adrenalineCrashTicks--;
+         var0.causeFoodExhaustion(0.04F);
       }
 
       float var14 = var0.getYRot();

@@ -78,6 +78,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
    private static boolean postEffectsBroken;
    private static long adrenalineBeatAt;
    private static long lastHeartbeatAt;
+   private static long crashBreathAt;
+   private static boolean rushWasOnGround = true;
    private static Identifier activePostEffect;
    private static CombatInjuriesClient.AdrenalineMusicSoundInstance adrenalineMusic;
 
@@ -109,6 +111,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          hysteriaPhantomAt = 0L;
          adrenalineBeatAt = 0L;
          lastHeartbeatAt = 0L;
+         crashBreathAt = 0L;
          hysteriaStartedAt = 0L;
          hysteriaFilterEndedAt = 0L;
          adrenalineFilterEndedAt = 0L;
@@ -128,6 +131,10 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          if (var4 && !concussionWasActive) {
             concussionStartedAt = var2;
             var0.getSoundManager().stop();
+            if (var11 && adrenalineRushWasActive && hasAdrenalineWave()) {
+               adrenalineMusic = new CombatInjuriesClient.AdrenalineMusicSoundInstance();
+               var0.getSoundManager().play(adrenalineMusic);
+            }
          }
 
          if (var4 && var2 - concussionSoundAt >= 1600L) {
@@ -207,6 +214,28 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             adrenalineBeatAt = 0L;
             lastHeartbeatAt = 0L;
          }
+
+         if (var12) {
+            if (crashBreathAt == 0L) {
+               crashBreathAt = var2 + 1800L;
+            } else if (var2 >= crashBreathAt) {
+               playCue(var0, SoundEvents.PLAYER_BREATH, 0.8F, 0.6F);
+               crashBreathAt = var2 + 2600L;
+            }
+         } else {
+            crashBreathAt = 0L;
+         }
+
+         if (var11 && !var1.getAbilities().flying && !var1.isFallFlying() && !var1.isInWater() && !var1.onGround()) {
+            net.minecraft.world.phys.Vec3 rushMotion = var1.getDeltaMovement();
+            double rushHorizontal = Math.hypot(rushMotion.x, rushMotion.z);
+            if (rushHorizontal > 0.05 && rushHorizontal < 0.5) {
+               double rushScale = rushWasOnGround ? 1.3 : 1.045;
+               var1.setDeltaMovement(rushMotion.x * rushScale, rushMotion.y, rushMotion.z * rushScale);
+            }
+         }
+
+         rushWasOnGround = var1.onGround();
 
          if (var12 && !adrenalineCrashWasActive) {
             adrenalineCrashStartedAt = var2;
@@ -423,6 +452,23 @@ public final class CombatInjuriesClient implements ClientModInitializer {
                int var16 = ThreadLocalRandom.current().nextInt(2, Math.max(3, Math.min(24, var9 / 5)));
                int var17 = ThreadLocalRandom.current().nextBoolean() ? 587202559 : 570425344;
                var0.fill(var26, var28, Math.min(var9, var26 + var16), Math.min(var10, var28 + 1), var17);
+            }
+         }
+
+         MobEffectInstance crashFx = var3.getEffect(CombatInjuries.ADRENALINE_CRASH_EFFECT);
+         if (crashFx != null) {
+            float cvWeight = Math.max(0.0F, Math.min(1.0F, crashFx.getDuration() / 300.0F));
+            float cvSlow = (float)(0.5 + 0.5 * Math.sin(var4 / 700.0));
+            float cvStrength = (0.22F + 0.14F * cvSlow) * (0.35F + 0.65F * cvWeight);
+
+            for (int cvLayer = 0; cvLayer < 8; cvLayer++) {
+               int cvInset = cvLayer * 9;
+               int cvThick = 9;
+               int cvColor = (int)(cvStrength * 255.0F * (8 - cvLayer) / 8.0F) << 24;
+               var0.fill(cvInset, cvInset, var9 - cvInset, cvInset + cvThick, cvColor);
+               var0.fill(cvInset, var10 - cvInset - cvThick, var9 - cvInset, var10 - cvInset, cvColor);
+               var0.fill(cvInset, cvInset + cvThick, cvInset + cvThick, var10 - cvInset - cvThick, cvColor);
+               var0.fill(var9 - cvInset - cvThick, cvInset + cvThick, var9 - cvInset, var10 - cvInset - cvThick, cvColor);
             }
          }
 

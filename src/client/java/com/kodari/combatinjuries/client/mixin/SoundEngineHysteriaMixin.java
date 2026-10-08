@@ -50,6 +50,7 @@ public abstract class SoundEngineHysteriaMixin {
    private static float concussionFactor(SoundInstance var0) {
       LocalPlayer player = Minecraft.getInstance().player;
       boolean tinnitus = isTinnitusSound(var0);
+      boolean music = var0.getIdentifier().equals(CombatInjuries.ADRENALINE_MUSIC.location());
       MobEffectInstance effect = player == null ? null : player.getEffect(CombatInjuries.CONCUSSION_EFFECT);
       if (effect == null) {
          return tinnitus ? 0.0F : 1.0F;
@@ -57,7 +58,11 @@ public abstract class SoundEngineHysteriaMixin {
 
       float recovered = 1.0F - Math.max(0.0F, Math.min(1.0F, effect.getDuration() / CONCUSSION_RECOVERY_TICKS));
       recovered = recovered * recovered * (3.0F - 2.0F * recovered);
-      return tinnitus ? 1.0F - recovered : recovered;
+      if (tinnitus) {
+         return 1.0F - recovered;
+      }
+
+      return music ? 0.18F + 0.82F * recovered : recovered;
    }
 
    private static boolean isTinnitusSound(SoundInstance var0) {

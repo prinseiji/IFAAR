@@ -16,7 +16,7 @@ public abstract class LivingEntityInjuryMixin {
       cancellable = true
    )
    private void preventJumpWithFracture(CallbackInfo var1) {
-      if ((Object)this instanceof Player var2 && CombatInjuries.isFractured(var2)) {
+      if ((Object)this instanceof Player var2 && (CombatInjuries.isFractured(var2) || var2.hasEffect(CombatInjuries.FRACTURE_EFFECT))) {
          var1.cancel();
       }
    }
