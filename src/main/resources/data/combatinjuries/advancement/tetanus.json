@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:hemorrhage",
+  "display": {
+    "icon": {
+      "id": "minecraft:iron_sword"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.tetanus.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.tetanus.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

@@ -69,3 +69,13 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 ## Round 7b
 
 - **Syringe bar.** The timing bar is now your bloody syringe texture (`textures/gui/syringe_bar.png`, cropped to 24x64), drawn at about a third of the screen height. The plunger at the top is the start of the rush and the needle is the end. The coloured zones (dark cooldown, amber danger, green window; red at stack 4) are tinted over the barrel, and a white marker line moves down it. Texture supplied by the owner from another project - confirm you have the right to ship it.
+
+## Round 8
+
+- **Shorter windows.** The good-timing window shrinks with the stack: 2.5 s (1st shot), 1.75 s (2nd), 1 s (3rd; the last real one) - see `AdrenalineRules.windowTicks()`. The bar uses the same numbers.
+- **Fake QTE.** From the 3rd shot on, a blue "FATAL EXCEPTION" window (blue-screen style) flashes beside the bar twice per segment while you are still in the danger zone, with a quickly draining timer. Pressing during it is an overdose. It never covers the real bar. Timing is in `AdrenalineRules.fakeProgress()`.
+- **Bar shake** from the 3rd shot on (1 px, then 2 px at stack 4).
+- **FOV.** +3 degrees per shot (12 at the 4th), plus a thump on every heartbeat and a small push as the window nears. Implemented as an OPTIONAL mixin (`GameRendererFovMixin`, own config `combatinjuries.fov.mixins.json`, `required: false`) so a wrong method name in 26.2 only disables the effect instead of stopping the game.
+- **Chain filter.** 13 pre-baked filters `adrenaline_chain_0..12`, a muted version of the Hysteria look (intensity 0.20 -> 0.65, contrast 1.1 -> 1.85, darkness 0 -> 0.10). The level rises through each segment and with each stack (3 levels per stack).
+- **Vignette** creeps further per stack (80 px depth + 70 px per stack) and is stronger.
+- **16 advancements** (data/combatinjuries/advancement). They sit in the vanilla Adventure tab. Granted from `CombatInjuries.grant()`. Injury achievements fire the first time each status is seen; "How Did We Get Here?" needs all 7 injuries in one life (reset on death). New test command: `/injurytest fake_qte`.

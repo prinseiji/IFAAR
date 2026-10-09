@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:first_dose",
+  "display": {
+    "icon": {
+      "id": "combatinjuries:adrenaline_shot"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.chain_2.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.chain_2.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

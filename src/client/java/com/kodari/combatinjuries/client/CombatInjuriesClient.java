@@ -436,7 +436,15 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          float var7 = Math.max(0.0F, Math.min(1.0F, var12 / 1600.0F));
          setCameraPostEffect(var0, "hysteria_monochrome_" + Math.round(var7 * 10.0F));
       } else if (var2) {
-         setCameraPostEffect(var0, "adrenaline_monochrome_5");
+         int chainLevel = 5;
+         MobEffectInstance chainFx = var0.player == null ? null : var0.player.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+         if (chainFx != null) {
+            int cShots = chainFx.getAmplifier() + 1;
+            float cProgress = Math.max(0.0F, Math.min(0.999F, 1.0F - chainFx.getDuration() / (float)AdrenalineRules.segmentTicks(cShots)));
+            chainLevel = Math.min(12, (cShots - 1) * 3 + (int)(3.0F * cProgress));
+         }
+
+         setCameraPostEffect(var0, "adrenaline_chain_" + chainLevel);
       } else if (var3) {
          float var11 = Math.max(0.0F, Math.min(1.0F, (float)(var4 - adrenalineCrashStartedAt) / 900.0F));
          float crashLevel = Math.min(var11, crashRemaining);
@@ -567,6 +575,53 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       }
    }
 
+   /** A blue-screen-of-death style fake "inject now" window. Pressing while it shows is a trap. It sits beside the real bar, never over it. */
+   private static void renderFakeQte(GuiGraphicsExtractor g, int w, int h, long now, float progress) {
+      net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
+      int ww = 118;
+      int wh = 50;
+      int wx = Math.max(4, w - 24 - (int)(Math.max(1.0F, h * 0.34F / 64.0F) * 24) - 14 - ww);
+      int wy = h / 2 + 6;
+      boolean blink = (now / 90L) % 2L == 0L;
+      g.fill(wx - 2, wy - 2, wx + ww + 2, wy + wh + 2, 0xFF000000);
+      g.fill(wx, wy, wx + ww, wy + wh, 0xFF0000AA);
+      g.fill(wx, wy, wx + ww, wy + 11, 0xFFFFFFFF);
+      g.text(font, " FATAL EXCEPTION 0E", wx + 2, wy + 2, 0xFF0000AA, false);
+      g.text(font, "PRESS NOW TO INJECT", wx + 6, wy + 17, blink ? 0xFFFFFFFF : 0xFFAAAAFF, false);
+      g.text(font, "ANY KEY TO CONTINUE_", wx + 6, wy + 28, 0xFFFFFFFF, false);
+      int fullW = ww - 12;
+      g.fill(wx + 6, wy + 40, wx + 6 + fullW, wy + 45, 0xFF000055);
+      g.fill(wx + 6, wy + 40, wx + 6 + (int)(fullW * (1.0F - progress)), wy + 45, 0xFFFFFFFF);
+   }
+
+   private static float fovCurrent;
+
+   /** Extra field of view in degrees while chaining: +3 per shot (12 at the 4th), a thump on every heartbeat, and a push as the window nears. */
+   public static float fovBonusDegrees() {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      MobEffectInstance rush = player == null ? null : player.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+      float target = 0.0F;
+      if (rush != null) {
+         int shots = rush.getAmplifier() + 1;
+         int seg = AdrenalineRules.segmentTicks(shots);
+         float approach = Math.max(0.0F, Math.min(1.0F, (seg - rush.getDuration() - AdrenalineRules.COOLDOWN_TICKS) / (float)(seg - AdrenalineRules.COOLDOWN_TICKS)));
+         target = 3.0F * shots + 2.0F * approach * approach;
+         if (lastHeartbeatAt > 0L) {
+            float since = (float)(System.currentTimeMillis() - lastHeartbeatAt);
+            float thump = Math.max(0.0F, 1.0F - since / 320.0F);
+            target += 1.5F * thump * thump * shots;
+         }
+      }
+
+      fovCurrent += (target - fovCurrent) * 0.18F;
+      if (Math.abs(fovCurrent) < 0.02F && target == 0.0F) {
+         fovCurrent = 0.0F;
+      }
+
+      return fovCurrent;
+   }
+
    /** Smooth edge darkening: many thin frames whose strength falls off quadratically toward the centre. */
    private static void drawVignette(GuiGraphicsExtractor g, int w, int h, int depth, float strength, int rgb) {
       int step = 2;
@@ -651,9 +706,9 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             rvPulse *= rvPulse;
             float rvFadeIn = Math.min(1.0F, (float)(var4 - adrenalineRushStartedAt) / 600.0F);
             int rvStack = Math.max(1, lastRushShots);
-            float rvStrength = Math.min(0.85F, (0.16F + 0.30F * rvPulse + 0.06F * (rvStack - 1)) * rvFadeIn);
+            float rvStrength = Math.min(0.85F, (0.16F + 0.30F * rvPulse + 0.09F * (rvStack - 1)) * rvFadeIn);
 
-            drawVignette(var0, var9, var10, 80 + 36 * (rvStack - 1), rvStrength, 0xB0101A);
+            drawVignette(var0, var9, var10, 80 + 70 * (rvStack - 1), rvStrength, 0xB0101A);
          }
 
          if (finalFlashAt > 0L) {
@@ -679,15 +734,16 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             float sc = Math.max(1.0F, var10 * 0.34F / 64.0F);
             int sw = (int)(24 * sc);
             int sh = (int)(64 * sc);
-            int sx = var9 - sw - 8;
-            int sy = (var10 - sh) / 2;
+            int shake = Math.max(0, bShots - 2);
+            int sx = var9 - sw - 8 + (shake == 0 ? 0 : ThreadLocalRandom.current().nextInt(-shake, shake + 1));
+            int sy = (var10 - sh) / 2 + (shake == 0 ? 0 : ThreadLocalRandom.current().nextInt(-shake, shake + 1));
             var0.blit(RenderPipelines.GUI_TEXTURED, Identifier.fromNamespaceAndPath("combatinjuries", "textures/gui/syringe_bar.png"), sx, sy, 0, 0, sw, sh, 24, 64, 24, 64);
             int barX0 = sx + (int)(8 * sc);
             int barX1 = sx + (int)(16 * sc);
             int barY0 = sy + (int)(14 * sc);
             int barH = (int)(30 * sc);
             int cdH = barH * AdrenalineRules.COOLDOWN_TICKS / bSeg;
-            int winH = barH * AdrenalineRules.WINDOW_TICKS / bSeg;
+            int winH = Math.max(2, barH * AdrenalineRules.windowTicks(bShots) / bSeg);
             int dangerTop = barY0 + cdH;
             int windowTop = barY0 + barH - winH;
             var0.fill(barX0, barY0, barX1, dangerTop, 0xA0000000);
@@ -698,6 +754,15 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             int bMark = barY0 + (int)(bFrac * (barH - 2));
             var0.fill(barX0 - 4, bMark - 1, barX1 + 4, bMark + 3, 0xFF000000);
             var0.fill(barX0 - 3, bMark, barX1 + 3, bMark + 2, 0xFFFFFFFF);
+         }
+
+         MobEffectInstance fakeFx = var3.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+         if (fakeFx != null) {
+            int fShots = fakeFx.getAmplifier() + 1;
+            float fProg = AdrenalineRules.fakeProgress(fShots, fakeFx.getDuration());
+            if (fProg >= 0.0F && AdrenalineRules.zoneFor(fShots, fakeFx.getDuration()) == AdrenalineRules.Zone.DANGER) {
+               renderFakeQte(var0, var9, var10, var4, fProg);
+            }
          }
 
          if (var3.hasEffect(CombatInjuries.STUN_EFFECT)) {

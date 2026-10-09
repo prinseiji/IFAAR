@@ -807,3 +807,6 @@ See CHANGES.md "Round 6". Unverified-API risks to check first if the build or ga
 
 ### 11.10 Round 7 additions
 See CHANGES.md "Round 7". The timing bar no longer shows shot pips and needs no texture files. Open: the stack-tiered music idea from 11.7 (tempo = intensity) is not built; the pitch-rise toward the window is.
+
+### 11.11 Round 8 additions
+See CHANGES.md "Round 8". Things to verify first if something misbehaves: (1) `GameRenderer.getFov` may have a different name/return type in 26.2 - the FOV mixin is non-required so the effect would just be missing (check the log for a mixin warning); (2) advancement awarding uses `server.getAdvancements().get(id)` and `player.getAdvancements().award(holder, "done")`; a wrong API name would fail the BUILD, a bad JSON would just log an error and skip that advancement; (3) the advancements use `minecraft:adventure/root` as parent so no custom tab background is needed.

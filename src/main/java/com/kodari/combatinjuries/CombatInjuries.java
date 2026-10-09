@@ -173,6 +173,11 @@ public final class CombatInjuries implements ModInitializer {
       AttackEntityCallback.EVENT.register(CombatInjuries::onAttack);
       UseItemCallback.EVENT.register(CombatInjuries::onUseItem);
       ServerLivingEntityEvents.AFTER_DAMAGE.register(CombatInjuries::afterDamage);
+      ServerLivingEntityEvents.AFTER_DEATH.register((dead, source) -> {
+         if (dead instanceof ServerPlayer deadPlayer) {
+            state(deadPlayer).seenMask = 0;
+         }
+      });
       CommandRegistrationCallback.EVENT
          .register(
             (CommandRegistrationCallback)(var0, var1, var2) -> var0.register(
@@ -200,6 +205,7 @@ public final class CombatInjuries implements ModInitializer {
                                     .then(Commands.literal("adrenaline_stun").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "adrenaline_stun")))
                                     .then(Commands.literal("overdose").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "overdose")))
                                     .then(Commands.literal("qte").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "qte")))
+                                    .then(Commands.literal("fake_qte").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "fake_qte")))
                                     .then(Commands.literal("asphyxia").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "asphyxia"))))
                                  .then(Commands.literal("winded").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "winded"))))
                               .then(Commands.literal("hysteria").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "hysteria"))))
@@ -330,11 +336,16 @@ public final class CombatInjuries implements ModInitializer {
             var3.stunTicks = AdrenalineRules.CASHOUT_STUN_TICKS;
             break;
          case "overdose":
-            overdose(var2, var3);
+            overdose(var2, var3, Math.max(1, var3.rushShots), false);
+            break;
+         case "fake_qte":
+            var3.rushShots = Math.max(3, var3.rushShots);
+            var3.adrenalineRushTicks = AdrenalineRules.segmentTicks(var3.rushShots) - (AdrenalineRules.FAKE_START_1 + 3);
+            var3.adrenalineCrashTicks = 0;
             break;
          case "qte":
             if (var3.adrenalineRushTicks > 0) {
-               var3.adrenalineRushTicks = AdrenalineRules.WINDOW_TICKS + AdrenalineRules.LATENCY_GRACE_TICKS + 20;
+               var3.adrenalineRushTicks = AdrenalineRules.windowTicks(Math.max(1, var3.rushShots)) + AdrenalineRules.LATENCY_GRACE_TICKS + 20;
             }
             break;
          case "concussion_light":
@@ -452,6 +463,7 @@ public final class CombatInjuries implements ModInitializer {
                var5.adrenalineRushTicks = AdrenalineRules.FIRST_SEGMENT_TICKS;
                var5.adrenalineCrashTicks = 0;
                var5.storedAdrenalineDamage = 0.0F;
+               grant(var3, "first_dose");
                return InteractionResult.SUCCESS;
             }
 
@@ -464,13 +476,15 @@ public final class CombatInjuries implements ModInitializer {
             var4.consume(1, var3);
             var3.getCooldowns().addCooldown(cdStack2, AdrenalineRules.COOLDOWN_TICKS);
             var1.playSound((Player)null, var3.getX(), var3.getY(), var3.getZ(), ADRENALINE_INJECT, SoundSource.PLAYERS, 1.0F, 1.0F + 0.12F * shots);
+            boolean fakePress = zone == Zone.DANGER && AdrenalineRules.fakeActive(shots, var5.adrenalineRushTicks);
             if (shots >= AdrenalineRules.MAX_SHOTS) {
-               overdose(var3, var5);
+               overdose(var3, var5, shots, fakePress);
             } else if (zone == Zone.WINDOW) {
                var5.rushShots = shots + 1;
                var5.adrenalineRushTicks = AdrenalineRules.EXTENSION_SEGMENT_TICKS;
+               grant(var3, var5.rushShots == 2 ? "chain_2" : (var5.rushShots == 3 ? "chain_3" : "chain_4"));
             } else if (shots >= AdrenalineRules.LETHAL_EARLY_STACK) {
-               overdose(var3, var5);
+               overdose(var3, var5, shots, fakePress);
             } else {
                var5.stunTicks = AdrenalineRules.SHOCK_STUN_TICKS;
                endRush(var3, var5, false);
@@ -502,7 +516,16 @@ public final class CombatInjuries implements ModInitializer {
    }
 
    /** Lethal damage that ignores armor, effects and enchantments. A Totem of Undying still saves you, at a heavy price. Creative players keep the penalty but not the death. */
-   private static void overdose(ServerPlayer var0, CombatInjuries.InjuryState var1) {
+   private static void overdose(ServerPlayer var0, CombatInjuries.InjuryState var1, int shotsBefore, boolean fake) {
+      grant(var0, "overdose");
+      if (shotsBefore < AdrenalineRules.MAX_SHOTS) {
+         grant(var0, "overdose_early");
+      }
+
+      if (fake) {
+         grant(var0, "fake_qte");
+      }
+
       var1.adrenalineRushTicks = 0;
       var1.adrenalineCrashTicks = 0;
       var1.rushShots = 0;
@@ -628,6 +651,7 @@ public final class CombatInjuries implements ModInitializer {
    private static void tickPlayer(ServerPlayer var0) {
       CombatInjuries.InjuryState var1 = state(var0);
       var1.ticks++;
+      checkInjuryAchievements(var0, var1);
       if (var1.lastBerryDamageTick >= 0 && var1.ticks - var1.lastBerryDamageTick > 25) {
          var1.berryDamageTicks = 0;
          var1.lastBerryDamageTick = -1;
@@ -908,6 +932,65 @@ public final class CombatInjuries implements ModInitializer {
    public static final int CONCUSSION_LIGHT_TICKS = 120;
    public static final int CONCUSSION_HEAVY_TICKS = 300;
 
+   /** Gives a mod advancement (data/combatinjuries/advancement/<id>.json). Safe to call repeatedly: vanilla ignores an advancement already earned. */
+   private static void grant(ServerPlayer player, String id) {
+      try {
+         var holder = player.level().getServer().getAdvancements().get(Identifier.fromNamespaceAndPath("combatinjuries", id));
+         if (holder != null) {
+            player.getAdvancements().award(holder, "done");
+         }
+      } catch (RuntimeException ignored) {
+      }
+   }
+
+   /** Called every tick: awards the injury achievements the first time each status is seen, and "all injuries" once all seven were seen in one life. */
+   private static void checkInjuryAchievements(ServerPlayer var0, CombatInjuries.InjuryState var1) {
+      int seen = var1.seenMask;
+      if (var1.hemorrhage) {
+         seen |= 1;
+      }
+      if (var1.tetanus) {
+         seen |= 2;
+      }
+      if (var1.concussionTicks > 0) {
+         seen |= 4;
+      }
+      if (var1.fracture) {
+         seen |= 8;
+      }
+      if (var1.winded) {
+         seen |= 16;
+      }
+      if (var1.asphyxia) {
+         seen |= 32;
+      }
+      if (var1.hysteria) {
+         seen |= 64;
+      }
+
+      if (seen != var1.seenMask) {
+         int added = seen & ~var1.seenMask;
+         var1.seenMask = seen;
+         String[] ids = {"hemorrhage", "tetanus", "concussion", "fracture", "winded", "asphyxia", "hysteria"};
+         for (int i = 0; i < ids.length; i++) {
+            if ((added & (1 << i)) != 0) {
+               grant(var0, ids[i]);
+            }
+         }
+
+         if (seen == 127) {
+            grant(var0, "all_injuries");
+         }
+      }
+
+      if (++var1.shotCheckTicks >= 40) {
+         var1.shotCheckTicks = 0;
+         if (var0.getInventory().contains(stack -> stack.is(ADRENALINE_SHOT))) {
+            grant(var0, "obtain_shot");
+         }
+      }
+   }
+
    private static void applyConcussion(CombatInjuries.InjuryState var0, boolean heavy) {
       if (heavy) {
          var0.concussionTicks = CONCUSSION_HEAVY_TICKS;
@@ -1026,6 +1109,8 @@ public final class CombatInjuries implements ModInitializer {
       private int concussionTicks;
       private boolean concussionHeavy;
       private int rushShots;
+      private int seenMask;
+      private int shotCheckTicks;
       private int stunTicks;
       private int shotLockoutTicks;
       private int asphyxiaDamageTicks;

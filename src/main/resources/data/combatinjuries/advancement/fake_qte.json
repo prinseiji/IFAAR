@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:overdose",
+  "display": {
+    "icon": {
+      "id": "minecraft:lapis_block"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.fake_qte.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.fake_qte.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:hemorrhage",
+  "display": {
+    "icon": {
+      "id": "minecraft:totem_of_undying"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.all_injuries.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.all_injuries.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

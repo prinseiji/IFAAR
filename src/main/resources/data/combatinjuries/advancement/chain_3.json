@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:chain_2",
+  "display": {
+    "icon": {
+      "id": "combatinjuries:adrenaline_shot"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.chain_3.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.chain_3.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:hemorrhage",
+  "display": {
+    "icon": {
+      "id": "minecraft:tnt"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.concussion.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.concussion.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

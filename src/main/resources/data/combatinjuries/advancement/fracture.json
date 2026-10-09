@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:hemorrhage",
+  "display": {
+    "icon": {
+      "id": "minecraft:bone"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.fracture.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.fracture.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

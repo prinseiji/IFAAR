@@ -1,0 +1,28 @@
+{
+  "parent": "combatinjuries:first_dose",
+  "display": {
+    "icon": {
+      "id": "combatinjuries:syringe"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.overdose.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.overdose.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}
