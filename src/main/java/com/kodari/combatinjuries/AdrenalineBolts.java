@@ -31,7 +31,6 @@ import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Item.Properties;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 
@@ -200,9 +199,9 @@ public final class AdrenalineBolts {
       // Upward geyser.
       level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.REDSTONE_BLOCK.defaultBlockState()), x, y, z, count / 3, w * 0.1, h * 0.8, w * 0.1, 0.5);
       // Chunks of flesh and bone thrown far.
-      ItemStack[] gibs = {new ItemStack(Items.BEEF), new ItemStack(Items.PORKCHOP), new ItemStack(Items.ROTTEN_FLESH), new ItemStack(Items.SPIDER_EYE), new ItemStack(Items.BONE), new ItemStack(Items.MUTTON)};
+      Item[] gibs = {Items.BEEF, Items.PORKCHOP, Items.ROTTEN_FLESH, Items.SPIDER_EYE, Items.BONE, Items.MUTTON};
       int perGib = Math.max(4, count / 14);
-      for (ItemStack gib : gibs) {
+      for (Item gib : gibs) {
          level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, gib), x, y, z, perGib, w * 0.25, h * 0.25, w * 0.25, 0.7);
       }
 

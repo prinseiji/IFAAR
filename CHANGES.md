@@ -132,3 +132,4 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Real red flashing.** Injected mobs now flash bright red on and off (weak mobs fast and steady, strong mobs faster and faster toward the end) instead of staying red. Done on the client by `LivingEntityRendererFlashMixin` reading an invisible rush effect the server puts on the mob.
 - **Player flashes red too** during a rush (visible in F5), on the beat of the heartbeat; faster at higher stacks.
 - **Chain filter changes only once per stack** (4 levels instead of 13). Swapping the screen filter often is the main suspect for the rainbow flash glitch reported in round 13 testing.
+- Build fix: gib particles take an Item, not an ItemStack.
