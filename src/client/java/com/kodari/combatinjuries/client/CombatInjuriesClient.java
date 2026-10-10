@@ -86,6 +86,8 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       SoundEvents.ZOMBIE_ATTACK_WOODEN_DOOR
    };
    private static long hysteriaPhantomAt;
+   private static long hysteriaFlashNextAt;
+   private static long hysteriaFlashUntil;
    private static boolean postEffectsBroken;
    private static long adrenalineBeatAt;
    private static long lastHeartbeatAt;
@@ -162,17 +164,18 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             hysteriaFilterEndedAt = 0L;
          }
 
-         if (var5 && var2 - hysteriaSoundAt >= 800L) {
+         float hystAge = Math.min(1.0F, (float)(var2 - hysteriaStartedAt) / 20000.0F);
+         if (var5 && var2 - hysteriaSoundAt >= (long)(800.0F - 320.0F * hystAge)) {
             playCue(var0, SoundEvents.WARDEN_HEARTBEAT, 0.9F, 0.72F);
             hysteriaSoundAt = var2;
          }
 
          if (var5) {
          if (hysteriaPhantomAt == 0L) {
-            hysteriaPhantomAt = var2 + 2500L + ThreadLocalRandom.current().nextInt(5000);
+            hysteriaPhantomAt = var2 + 1500L + ThreadLocalRandom.current().nextInt(3000);
          } else if (var2 >= hysteriaPhantomAt) {
             playPhantomSound(var0);
-            hysteriaPhantomAt = var2 + 3000L + ThreadLocalRandom.current().nextInt(9000);
+            hysteriaPhantomAt = var2 + (long)((3000L + ThreadLocalRandom.current().nextInt(9000)) * (1.0F - 0.65F * hystAge));
          }
       } else {
          hysteriaPhantomAt = 0L;
@@ -212,9 +215,15 @@ public final class CombatInjuriesClient implements ClientModInitializer {
 
          int prevRushShots = lastRushShots;
          lastRushShots = qteShots;
+         if (qteShots > prevRushShots && prevRushShots > 0) {
+            playCue(var0, CombatInjuries.ADRENALINE_VEINS, 1.0F, 1.0F);
+         }
          qteWindowWasOpen = qteOpen;
          if (var11 && !adrenalineRushWasActive) {
             adrenalineRushStartedAt = var2;
+            veinSeed = ThreadLocalRandom.current().nextLong();
+            veinGrowth = 0.0F;
+            veinW = 0;
             adrenalineFilterEndedAt = 0L;
             adrenalineCrashFilterEndedAt = 0L;
             playCue(var0, CombatInjuries.ADRENALINE_POWER_UP, 1.0F, 1.0F);
@@ -522,6 +531,152 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       return Math.max(0.2F, Math.min(0.7F, screenWidth * 0.2F / 279.0F));
    }
 
+   private static final class VeinPath {
+      float[] xs;
+      float[] ys;
+      float startAt;
+      int minStack;
+      boolean branch;
+   }
+
+   private static final java.util.ArrayList<VeinPath> VEINS = new java.util.ArrayList<>();
+   private static long veinSeed;
+   private static int veinW;
+   private static int veinH;
+   private static float veinGrowth;
+
+   private static VeinPath traceVein(java.util.Random r, float x, float y, float heading, float length, float startAt, int minStack, boolean branch) {
+      int n = Math.max(4, (int)(length / 6.0F));
+      VeinPath v = new VeinPath();
+      v.xs = new float[n];
+      v.ys = new float[n];
+      v.startAt = startAt;
+      v.minStack = minStack;
+      v.branch = branch;
+      for (int i = 0; i < n; i++) {
+         v.xs[i] = x;
+         v.ys[i] = y;
+         heading += (float)(r.nextGaussian() * 0.22);
+         x += (float)Math.cos(heading) * 6.0F;
+         y += (float)Math.sin(heading) * 6.0F;
+      }
+
+      return v;
+   }
+
+   private static void buildVeins(int w, int h, long seed) {
+      VEINS.clear();
+      java.util.Random r = new java.util.Random(seed);
+      for (int i = 0; i < 17; i++) {
+         float x;
+         float y;
+         if (i < 4) {
+            x = (i & 1) == 0 ? -4.0F : w + 4.0F;
+            y = (i & 2) == 0 ? -4.0F : h + 4.0F;
+         } else {
+            int edge = r.nextInt(4);
+            if (edge == 0) {
+               x = r.nextFloat() * w;
+               y = -4.0F;
+            } else if (edge == 1) {
+               x = r.nextFloat() * w;
+               y = h + 4.0F;
+            } else if (edge == 2) {
+               x = -4.0F;
+               y = r.nextFloat() * h;
+            } else {
+               x = w + 4.0F;
+               y = r.nextFloat() * h;
+            }
+         }
+
+         float heading = (float)Math.atan2(h / 2.0F - y, w / 2.0F - x) + (float)(r.nextGaussian() * 0.25);
+         float length = Math.min(w, h) * 0.62F * (0.65F + 0.5F * r.nextFloat());
+         int minStack = i < 8 ? 1 : (i < 13 ? 2 : 3);
+         VeinPath main = traceVein(r, x, y, heading, length, 0.0F, minStack, false);
+         VEINS.add(main);
+         for (int b = 0; b < 2; b++) {
+            int at = (int)(main.xs.length * (0.3F + 0.3F * r.nextFloat()));
+            at = Math.max(1, Math.min(main.xs.length - 1, at));
+            float side = r.nextBoolean() ? 1.0F : -1.0F;
+            float bh = (float)Math.atan2(main.ys[at] - main.ys[at - 1], main.xs[at] - main.xs[at - 1]) + side * (0.6F + 0.5F * r.nextFloat());
+            VEINS.add(traceVein(r, main.xs[at], main.ys[at], bh, length * 0.4F, b == 0 ? 0.2F : 0.45F, minStack, true));
+         }
+      }
+   }
+
+   private static void renderVeins(GuiGraphicsExtractor g, int w, int h, long now) {
+      Minecraft mc = Minecraft.getInstance();
+      LocalPlayer player = mc.player;
+      MobEffectInstance rush = player == null ? null : player.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
+      int shots = rush == null ? 0 : rush.getAmplifier() + 1;
+      float target = 0.0F;
+      if (rush != null) {
+         int seg = Math.max(1, AdrenalineRules.segmentTicks(shots));
+         float progress = Math.max(0.0F, Math.min(1.0F, 1.0F - (float)rush.getDuration() / seg));
+         target = 0.06F + 0.22F * (shots - 1) + 0.16F * progress;
+      }
+
+      veinGrowth += (target - veinGrowth) * (target > veinGrowth ? 0.05F : 0.12F);
+      if (veinGrowth < 0.004F) {
+         veinGrowth = 0.0F;
+         return;
+      }
+
+      if (VEINS.isEmpty() || veinW != w || veinH != h) {
+         veinW = w;
+         veinH = h;
+         buildVeins(w, h, veinSeed);
+      }
+
+      float pulse = 0.0F;
+      if (lastHeartbeatAt > 0L) {
+         float since = (float)(now - lastHeartbeatAt);
+         pulse = Math.max(0.0F, 1.0F - since / 380.0F);
+         pulse *= pulse;
+         if (shots >= AdrenalineRules.MAX_SHOTS) {
+            float s2 = (float)(now - lastHeartbeatAt - 180L);
+            float p2 = Math.max(0.0F, 1.0F - Math.abs(s2) / 260.0F);
+            pulse = Math.max(pulse, 0.7F * p2 * p2);
+         }
+      }
+
+      int alpha = Math.min(255, (int)(0xB0 * Math.min(1.0F, 0.35F + veinGrowth)));
+      int red = 0x6E + (int)((0xD0 - 0x6E) * pulse);
+      int green = 0x0A + (int)((0x18 - 0x0A) * pulse);
+      int blue = 0x12 + (int)((0x28 - 0x12) * pulse);
+      int color = alpha << 24 | red << 16 | green << 8 | blue;
+      float boost = (shots >= 3 ? 2.0F : (shots == 2 ? 1.0F : 0.5F)) * pulse;
+      for (VeinPath v : VEINS) {
+         if (shots < v.minStack && veinGrowth > 0.0F && rush != null) {
+            continue;
+         }
+
+         float vis = v.branch
+            ? (veinGrowth - v.startAt) / (0.9F - v.startAt)
+            : veinGrowth / 0.9F;
+         vis = Math.max(0.0F, Math.min(1.0F, vis));
+         if (vis <= 0.0F) {
+            continue;
+         }
+
+         float pts = (v.xs.length - 1) * vis;
+         int last = (int)pts;
+         float base = v.branch ? 1.0F : 2.0F;
+         for (int i = 0; i < last && i + 1 < v.xs.length; i++) {
+            float taper = 1.0F - 0.6F * ((float)i / v.xs.length);
+            int t = Math.max(1, Math.round((base + boost) * taper));
+            float dx = v.xs[i + 1] - v.xs[i];
+            float dy = v.ys[i + 1] - v.ys[i];
+            for (int k = 0; k < 3; k++) {
+               int px = (int)(v.xs[i] + dx * k / 3.0F);
+               int py = (int)(v.ys[i] + dy * k / 3.0F);
+               g.fill(px, py, px + t, py + t, color);
+            }
+         }
+      }
+   }
+
    private static void renderPopups(GuiGraphicsExtractor var0, int w, int h, long now) {
       Minecraft mc = Minecraft.getInstance();
       LocalPlayer player = mc.player;
@@ -555,7 +710,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             }
          }
 
-         popupNextAt = now + (shots >= AdrenalineRules.MAX_SHOTS ? 500L : 900L) + ThreadLocalRandom.current().nextInt(500);
+         popupNextAt = now + (shots >= AdrenalineRules.MAX_SHOTS ? 1300L : 1800L) + ThreadLocalRandom.current().nextInt(900);
       }
 
       for (int i = 0; i < POPUP_BORN.length; i++) {
@@ -575,23 +730,51 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       }
    }
 
-   /** A blue-screen-of-death style fake "inject now" window. Pressing while it shows is a trap. It sits beside the real bar, never over it. */
+   /**
+    * A glitched, electric-blue copy of the real syringe bar with a much faster marker. Pressing while it shows is a trap.
+    * It sits to the LEFT of the real bar and never covers it.
+    */
    private static void renderFakeQte(GuiGraphicsExtractor g, int w, int h, long now, float progress) {
-      net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
-      int ww = 118;
-      int wh = 50;
-      int wx = Math.max(4, w - 24 - (int)(Math.max(1.0F, h * 0.34F / 64.0F) * 24) - 14 - ww);
-      int wy = h / 2 + 6;
-      boolean blink = (now / 90L) % 2L == 0L;
-      g.fill(wx - 2, wy - 2, wx + ww + 2, wy + wh + 2, 0xFF000000);
-      g.fill(wx, wy, wx + ww, wy + wh, 0xFF0000AA);
-      g.fill(wx, wy, wx + ww, wy + 11, 0xFFFFFFFF);
-      g.text(font, " FATAL EXCEPTION 0E", wx + 2, wy + 2, 0xFF0000AA, false);
-      g.text(font, "PRESS NOW TO INJECT", wx + 6, wy + 17, blink ? 0xFFFFFFFF : 0xFFAAAAFF, false);
-      g.text(font, "ANY KEY TO CONTINUE_", wx + 6, wy + 28, 0xFFFFFFFF, false);
-      int fullW = ww - 12;
-      g.fill(wx + 6, wy + 40, wx + 6 + fullW, wy + 45, 0xFF000055);
-      g.fill(wx + 6, wy + 40, wx + 6 + (int)(fullW * (1.0F - progress)), wy + 45, 0xFFFFFFFF);
+      java.util.Random rnd = new java.util.Random(now / 45L);
+      if (rnd.nextInt(9) == 0) {
+         return;
+      }
+
+      float sc = Math.max(1.0F, h * 0.38F / 64.0F);
+      int sw = (int)(24 * sc);
+      int sh = (int)(64 * sc);
+      int fx = w - sw - 8 - sw - 22;
+      int fy = (h - sh) / 2;
+      Identifier tex = Identifier.fromNamespaceAndPath("combatinjuries", "textures/gui/syringe_bar.png");
+      int strips = 16;
+      int stripH = Math.max(1, sh / strips);
+      int texStrip = 64 / strips;
+      for (int i = 0; i < strips; i++) {
+         int off = rnd.nextInt(3) == 0 ? rnd.nextInt(17) - 8 : 0;
+         g.blit(RenderPipelines.GUI_TEXTURED, tex, fx + off, fy + i * stripH, 0, i * texStrip, sw, stripH, 24, texStrip, 24, 64);
+      }
+
+      g.fill(fx, fy, fx + sw, fy + sh, 0x7A0A3CFF);
+      int bx0 = fx + (int)(8 * sc);
+      int bx1 = fx + (int)(16 * sc);
+      int by0 = fy + (int)(14 * sc);
+      int bh = (int)(30 * sc);
+      g.fill(bx0, by0, bx1, by0 + bh * 55 / 100, 0xB0001A66);
+      g.fill(bx0, by0 + bh * 55 / 100, bx1, by0 + bh * 80 / 100, 0xB000B7FF);
+      boolean flash = (now / 50L) % 2L == 0L;
+      g.fill(bx0, by0 + bh * 80 / 100, bx1, by0 + bh, flash ? 0xFF8CFFFF : 0xFF1E4DFF);
+      int my = by0 + (int)(progress * (bh - 2));
+      for (int t = 3; t >= 1; t--) {
+         int a = 0x28 * (4 - t);
+         g.fill(bx0 - 5, my - t * 5, bx1 + 5, my - t * 5 + 2, a << 24 | 0x66CCFF);
+      }
+
+      g.fill(bx0 - 7, my - 1, bx1 + 7, my + 4, 0xFF000000);
+      g.fill(bx0 - 6, my, bx1 + 6, my + 3, 0xFF9FD8FF);
+      for (int i = 0; i < 4; i++) {
+         int ty = fy + rnd.nextInt(Math.max(1, sh));
+         g.fill(fx - 6, ty, fx + sw + 6, ty + 1 + rnd.nextInt(2), 0xAA66CCFF);
+      }
    }
 
    private static float fovCurrent;
@@ -605,12 +788,24 @@ public final class CombatInjuriesClient implements ClientModInitializer {
       if (rush != null) {
          int shots = rush.getAmplifier() + 1;
          int seg = AdrenalineRules.segmentTicks(shots);
-         float approach = Math.max(0.0F, Math.min(1.0F, (seg - rush.getDuration() - AdrenalineRules.COOLDOWN_TICKS) / (float)(seg - AdrenalineRules.COOLDOWN_TICKS)));
+         float approach = Math.max(0.0F, Math.min(1.0F, (seg - rush.getDuration() - AdrenalineRules.cooldownTicks(shots)) / (float)(seg - AdrenalineRules.cooldownTicks(shots))));
          target = 3.0F * shots + 2.0F * approach * approach;
          if (lastHeartbeatAt > 0L) {
             float since = (float)(System.currentTimeMillis() - lastHeartbeatAt);
             float thump = Math.max(0.0F, 1.0F - since / 320.0F);
             target += 1.5F * thump * thump * shots;
+         }
+      }
+
+      if (player != null && player.hasEffect(CombatInjuries.HYSTERIA_EFFECT)) {
+         long age = System.currentTimeMillis() - hysteriaStartedAt;
+         float hf = Math.max(0.0F, Math.min(1.0F, age / 20000.0F));
+         double wobble = Math.sin(age / 430.0) * 2.0 + Math.sin(age / 170.0) * 0.8;
+         target += (float)wobble * (0.6F + 0.8F * hf);
+         if (hysteriaSoundAt > 0L) {
+            float since = (float)(System.currentTimeMillis() - hysteriaSoundAt);
+            float thump = Math.max(0.0F, 1.0F - since / 260.0F);
+            target += 2.5F * thump * thump * (0.5F + 0.5F * hf);
          }
       }
 
@@ -682,7 +877,38 @@ public final class CombatInjuriesClient implements ClientModInitializer {
                var0.fill(0, 0, var9, var10, Math.min(255, (int)(var22 * 255.0F)) << 24);
             }
 
-            for (int var23 = 0; var23 < 28; var23++) {
+            float hf = Math.min(1.0F, var19 / 20000.0F);
+            // heartbeat-synced black vignette that closes in the longer the hysteria lasts
+            if (hysteriaSoundAt > 0L) {
+               float hSince = (float)(var4 - hysteriaSoundAt);
+               float hPulse = Math.max(0.0F, 1.0F - hSince / 520.0F);
+               drawVignette(var0, var9, var10, (int)(110 + 150 * hf), Math.min(0.9F, 0.30F + 0.30F * hPulse * hPulse + 0.28F * hf), 0x000000);
+            }
+
+            // torn static bands
+            if (ThreadLocalRandom.current().nextFloat() < 0.10F + 0.25F * hf) {
+               int bands = 1 + ThreadLocalRandom.current().nextInt(3);
+               for (int b = 0; b < bands; b++) {
+                  int by = ThreadLocalRandom.current().nextInt(Math.max(1, var10));
+                  int bh = 2 + ThreadLocalRandom.current().nextInt(9);
+                  int bc = ThreadLocalRandom.current().nextInt(3) == 0 ? 0x40FFFFFF : (ThreadLocalRandom.current().nextBoolean() ? 0x55000000 : 0x30AA0000);
+                  var0.fill(0, by, var9, Math.min(var10, by + bh), bc);
+               }
+            }
+
+            // sudden white flash
+            if (hysteriaFlashNextAt == 0L) {
+               hysteriaFlashNextAt = var4 + 2500L + ThreadLocalRandom.current().nextInt(4000);
+            } else if (var4 >= hysteriaFlashNextAt) {
+               hysteriaFlashUntil = var4 + 70L;
+               hysteriaFlashNextAt = var4 + (long)((3000L + ThreadLocalRandom.current().nextInt(6000)) * (1.0F - 0.55F * hf));
+            }
+
+            if (var4 < hysteriaFlashUntil) {
+               var0.fill(0, 0, var9, var10, 0x55FFFFFF);
+            }
+
+            for (int var23 = 0; var23 < 28 + (int)(70 * hf); var23++) {
                int var26 = ThreadLocalRandom.current().nextInt(Math.max(1, var9));
                int var28 = ThreadLocalRandom.current().nextInt(Math.max(1, var10));
                int var16 = ThreadLocalRandom.current().nextInt(2, Math.max(3, Math.min(24, var9 / 5)));
@@ -721,6 +947,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             }
          }
 
+         renderVeins(var0, var9, var10, var4);
          renderPopups(var0, var9, var10, var4);
          MobEffectInstance barFx = var3.getEffect(CombatInjuries.ADRENALINE_RUSH_EFFECT);
          if (barFx != null) {
@@ -731,7 +958,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             boolean bFlash = (var4 / (bRed ? 70L : 110L)) % 2L == 0L;
             // The bar is a bloody syringe (textures/gui/syringe_bar.png, 24x64). The timeline runs down the barrel,
             // plunger (top) = rush start, needle (bottom) = rush end. Coloured zones are tinted over the barrel.
-            float sc = Math.max(1.0F, var10 * 0.34F / 64.0F);
+            float sc = Math.max(1.0F, var10 * 0.38F / 64.0F);
             int sw = (int)(24 * sc);
             int sh = (int)(64 * sc);
             int shake = Math.max(0, bShots - 2);
@@ -742,7 +969,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             int barX1 = sx + (int)(16 * sc);
             int barY0 = sy + (int)(14 * sc);
             int barH = (int)(30 * sc);
-            int cdH = barH * AdrenalineRules.COOLDOWN_TICKS / bSeg;
+            int cdH = barH * AdrenalineRules.cooldownTicks(bShots) / bSeg;
             int winH = Math.max(2, barH * AdrenalineRules.windowTicks(bShots) / bSeg);
             int dangerTop = barY0 + cdH;
             int windowTop = barY0 + barH - winH;
@@ -806,7 +1033,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
             int shots = rushFx.getAmplifier() + 1;
             int seg = AdrenalineRules.segmentTicks(shots);
             float elapsed = (float)(seg - rushFx.getDuration());
-            float approach = Math.max(0.0F, Math.min(1.0F, (elapsed - AdrenalineRules.COOLDOWN_TICKS) / (float)(seg - AdrenalineRules.COOLDOWN_TICKS)));
+            float approach = Math.max(0.0F, Math.min(1.0F, (elapsed - AdrenalineRules.cooldownTicks(shots)) / (float)(seg - AdrenalineRules.cooldownTicks(shots))));
             this.pitch = 1.0F + 0.05F * (shots - 1) + 0.2F * approach * approach;
          }
       }

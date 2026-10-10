@@ -22,7 +22,7 @@ public final class AdrenalineRules {
    /** Default good-timing window (only used by test commands); the real window shrinks per stack, see windowTicks(). */
    public static final int WINDOW_TICKS = 50;
    /** Good-timing window at the very end of a segment, by number of shots so far (index = shots). 20 ticks = 1 s. */
-   private static final int[] WINDOW_BY_SHOTS = {50, 50, 35, 20, 20};
+   private static final int[] WINDOW_BY_SHOTS = {50, 50, 45, 40, 40};
    /** The window is widened by this many ticks on its early edge for network lag. */
    public static final int LATENCY_GRACE_TICKS = 3;
    /** Stack at which pressing too early is lethal instead of just a shock. */
@@ -38,8 +38,17 @@ public final class AdrenalineRules {
    /** Nobody can inject again for this long after surviving an overdose. */
    public static final int OVERDOSE_LOCKOUT_TICKS = 1200;
 
+   /** Length of the rush segment after the Nth shot. It gets shorter, so the marker sweeps the bar faster while the window stays generous. */
+   private static final int[] SEGMENT_BY_SHOTS = {600, 600, 400, 300, 220};
+   /** Item lock-out after the Nth shot (the grey part of the bar). */
+   private static final int[] COOLDOWN_BY_SHOTS = {200, 200, 140, 100, 80};
+
+   public static int cooldownTicks(int shots) {
+      return COOLDOWN_BY_SHOTS[Math.max(0, Math.min(COOLDOWN_BY_SHOTS.length - 1, shots))];
+   }
+
    public static int segmentTicks(int shots) {
-      return shots <= 1 ? FIRST_SEGMENT_TICKS : EXTENSION_SEGMENT_TICKS;
+      return SEGMENT_BY_SHOTS[Math.max(0, Math.min(SEGMENT_BY_SHOTS.length - 1, shots))];
    }
 
    public static int windowTicks(int shots) {
@@ -48,17 +57,32 @@ public final class AdrenalineRules {
 
    public static Zone zoneFor(int shots, int ticksLeft) {
       int elapsed = segmentTicks(shots) - ticksLeft;
-      if (elapsed < COOLDOWN_TICKS) {
+      if (elapsed < cooldownTicks(shots)) {
          return Zone.COOLDOWN;
       }
       return ticksLeft <= windowTicks(shots) + LATENCY_GRACE_TICKS ? Zone.WINDOW : Zone.DANGER;
    }
 
    /** From the 3rd shot on, fake blue "error" windows tempt you to press inside the danger zone. Pressing during one is deadly. */
-   public static final int FAKE_START_1 = 235;
-   public static final int FAKE_LENGTH_1 = 25;
-   public static final int FAKE_START_2 = 300;
-   public static final int FAKE_LENGTH_2 = 22;
+   private static int dangerLength(int shots) {
+      return segmentTicks(shots) - cooldownTicks(shots) - windowTicks(shots) - LATENCY_GRACE_TICKS;
+   }
+
+   public static int fakeStart1(int shots) {
+      return cooldownTicks(shots) + (int)(dangerLength(shots) * 0.18F);
+   }
+
+   public static int fakeLength1(int shots) {
+      return Math.min(25, (int)(dangerLength(shots) * 0.25F));
+   }
+
+   public static int fakeStart2(int shots) {
+      return cooldownTicks(shots) + (int)(dangerLength(shots) * 0.60F);
+   }
+
+   public static int fakeLength2(int shots) {
+      return Math.min(22, (int)(dangerLength(shots) * 0.22F));
+   }
 
    /** 0..1 progress through the currently active fake window, or -1 when none is showing. */
    public static float fakeProgress(int shots, int ticksLeft) {
@@ -66,11 +90,15 @@ public final class AdrenalineRules {
          return -1.0F;
       }
       int elapsed = segmentTicks(shots) - ticksLeft;
-      if (elapsed >= FAKE_START_1 && elapsed < FAKE_START_1 + FAKE_LENGTH_1) {
-         return (elapsed - FAKE_START_1) / (float)FAKE_LENGTH_1;
+      int s1 = fakeStart1(shots);
+      int l1 = fakeLength1(shots);
+      if (l1 > 0 && elapsed >= s1 && elapsed < s1 + l1) {
+         return (elapsed - s1) / (float)l1;
       }
-      if (elapsed >= FAKE_START_2 && elapsed < FAKE_START_2 + FAKE_LENGTH_2) {
-         return (elapsed - FAKE_START_2) / (float)FAKE_LENGTH_2;
+      int s2 = fakeStart2(shots);
+      int l2 = fakeLength2(shots);
+      if (l2 > 0 && elapsed >= s2 && elapsed < s2 + l2) {
+         return (elapsed - s2) / (float)l2;
       }
       return -1.0F;
    }

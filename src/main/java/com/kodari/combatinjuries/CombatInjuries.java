@@ -138,6 +138,7 @@ public final class CombatInjuries implements ModInitializer {
    public static final SoundEvent ADRENALINE_POWER_UP = registerSound("adrenaline_powerup");
    public static final SoundEvent ADRENALINE_POWER_DOWN = registerSound("adrenaline_powerdown");
    public static final SoundEvent ADRENALINE_POWER_DOWN_GRAND = registerSound("adrenaline_powerdown_grand");
+   public static final SoundEvent ADRENALINE_VEINS = registerSound("adrenaline_veins");
    public static final SoundEvent ADRENALINE_HEARTBEAT = registerSound("adrenaline_heartbeat");
    private static final Map<UUID, CombatInjuries.InjuryState> STATES = new HashMap<>();
 
@@ -176,6 +177,11 @@ public final class CombatInjuries implements ModInitializer {
       ServerLivingEntityEvents.AFTER_DEATH.register((dead, source) -> {
          if (dead instanceof ServerPlayer deadPlayer) {
             state(deadPlayer).seenMask = 0;
+         } else if (source != null && source.getEntity() instanceof ServerPlayer killer) {
+            CombatInjuries.InjuryState ks = state(killer);
+            if (ks.adrenalineRushTicks > 0 && ks.rushShots >= 3) {
+               grant(killer, "no_touching");
+            }
          }
       });
       CommandRegistrationCallback.EVENT
@@ -237,6 +243,10 @@ public final class CombatInjuries implements ModInitializer {
             var3.sleepTicks = 0;
             if (!sleptThrough) {
                return;
+            }
+
+            if (var3.hemorrhage) {
+               grant(var2, "sleep_cure");
             }
 
             var3.hemorrhage = false;
@@ -340,7 +350,7 @@ public final class CombatInjuries implements ModInitializer {
             break;
          case "fake_qte":
             var3.rushShots = Math.max(3, var3.rushShots);
-            var3.adrenalineRushTicks = AdrenalineRules.segmentTicks(var3.rushShots) - (AdrenalineRules.FAKE_START_1 + 3);
+            var3.adrenalineRushTicks = AdrenalineRules.segmentTicks(var3.rushShots) - (AdrenalineRules.fakeStart1(var3.rushShots) + 3);
             var3.adrenalineCrashTicks = 0;
             break;
          case "qte":
@@ -457,7 +467,7 @@ public final class CombatInjuries implements ModInitializer {
             if (shots == 0) {
                ItemStack cdStack = var4.copy();
                var4.consume(1, var3);
-               var3.getCooldowns().addCooldown(cdStack, AdrenalineRules.COOLDOWN_TICKS);
+               var3.getCooldowns().addCooldown(cdStack, AdrenalineRules.cooldownTicks(1));
                var1.playSound((Player)null, var3.getX(), var3.getY(), var3.getZ(), ADRENALINE_INJECT, SoundSource.PLAYERS, 1.0F, 1.0F);
                var5.rushShots = 1;
                var5.adrenalineRushTicks = AdrenalineRules.FIRST_SEGMENT_TICKS;
@@ -474,18 +484,19 @@ public final class CombatInjuries implements ModInitializer {
 
             ItemStack cdStack2 = var4.copy();
             var4.consume(1, var3);
-            var3.getCooldowns().addCooldown(cdStack2, AdrenalineRules.COOLDOWN_TICKS);
+            var3.getCooldowns().addCooldown(cdStack2, AdrenalineRules.cooldownTicks(Math.min(AdrenalineRules.MAX_SHOTS, shots + 1)));
             var1.playSound((Player)null, var3.getX(), var3.getY(), var3.getZ(), ADRENALINE_INJECT, SoundSource.PLAYERS, 1.0F, 1.0F + 0.12F * shots);
             boolean fakePress = zone == Zone.DANGER && AdrenalineRules.fakeActive(shots, var5.adrenalineRushTicks);
             if (shots >= AdrenalineRules.MAX_SHOTS) {
                overdose(var3, var5, shots, fakePress);
             } else if (zone == Zone.WINDOW) {
                var5.rushShots = shots + 1;
-               var5.adrenalineRushTicks = AdrenalineRules.EXTENSION_SEGMENT_TICKS;
+               var5.adrenalineRushTicks = AdrenalineRules.segmentTicks(var5.rushShots);
                grant(var3, var5.rushShots == 2 ? "chain_2" : (var5.rushShots == 3 ? "chain_3" : "chain_4"));
             } else if (shots >= AdrenalineRules.LETHAL_EARLY_STACK) {
                overdose(var3, var5, shots, fakePress);
             } else {
+               grant(var3, "jumpy");
                var5.stunTicks = AdrenalineRules.SHOCK_STUN_TICKS;
                endRush(var3, var5, false);
             }
@@ -501,12 +512,14 @@ public final class CombatInjuries implements ModInitializer {
       var1.adrenalineRushTicks = 0;
       var1.rushShots = 0;
       if (cashOut) {
+         grant(var0, "quit_ahead");
          var1.storedAdrenalineDamage = 0.0F;
          var1.stunTicks = AdrenalineRules.CASHOUT_STUN_TICKS;
          return;
       }
 
       var1.adrenalineCrashTicks = 300;
+      var1.crashFromShots = shots;
       if (var1.storedAdrenalineDamage > 0.0F) {
          ServerLevel var13 = var0.level();
          float bill = var1.storedAdrenalineDamage * AdrenalineRules.CRASH_MULT[shots];
@@ -536,6 +549,10 @@ public final class CombatInjuries implements ModInitializer {
       }
 
       if (var0.isAlive()) {
+         if (!var0.isCreative() && !var0.isSpectator()) {
+            grant(var0, "take_two");
+         }
+
          var1.stunTicks = AdrenalineRules.TOTEM_STUN_TICKS;
          var1.shotLockoutTicks = AdrenalineRules.OVERDOSE_LOCKOUT_TICKS;
       }
@@ -694,6 +711,10 @@ public final class CombatInjuries implements ModInitializer {
       float var10 = var0.getHealth();
       float healthGained = var10 - var1.previousHealth;
       if (healthGained >= HEMORRHAGE_CURE_HEAL) {
+         if (var1.hemorrhage) {
+            grant(var0, "stop_bleeding");
+         }
+
          var1.hemorrhage = false;
       } else if (healthGained > 0.0F && var1.hemorrhage && BLEEDING_BLOCKS_REGEN && !var0.hasEffect(MobEffects.REGENERATION)) {
          var0.setHealth(var1.previousHealth);
@@ -870,6 +891,12 @@ public final class CombatInjuries implements ModInitializer {
       } else if (var1.adrenalineCrashTicks > 0) {
          var1.adrenalineCrashTicks--;
          var0.causeFoodExhaustion(0.04F);
+         if (var1.adrenalineCrashTicks == 0 && var0.isAlive()) {
+            grant(var0, "comedown");
+            if (var1.crashFromShots >= 3) {
+               grant(var0, "paid_in_full");
+            }
+         }
       }
 
       float var14 = var0.getYRot();
@@ -968,6 +995,25 @@ public final class CombatInjuries implements ModInitializer {
          seen |= 64;
       }
 
+      if (var1.concussionTicks > 0 && var1.concussionHeavy) {
+         grant(var0, "heavy_concussion");
+      }
+
+      if (var1.asphyxia && var1.asphyxiaFromBurial) {
+         grant(var0, "dug_grave");
+      }
+
+      int activeCount = (var1.hemorrhage ? 1 : 0) + (var1.tetanus ? 1 : 0) + (var1.concussionTicks > 0 ? 1 : 0) + (var1.fracture ? 1 : 0)
+         + (var1.winded ? 1 : 0) + (var1.asphyxia ? 1 : 0) + (var1.hysteria ? 1 : 0);
+      if (activeCount >= 3) {
+         grant(var0, "walking_disaster");
+      }
+
+      if (var1.hysteriaPrev && !var1.hysteria) {
+         grant(var0, "back_to_reality");
+      }
+
+      var1.hysteriaPrev = var1.hysteria;
       if (seen != var1.seenMask) {
          int added = seen & ~var1.seenMask;
          var1.seenMask = seen;
@@ -987,6 +1033,14 @@ public final class CombatInjuries implements ModInitializer {
          var1.shotCheckTicks = 0;
          if (var0.getInventory().contains(stack -> stack.is(ADRENALINE_SHOT))) {
             grant(var0, "obtain_shot");
+         }
+
+         if (var0.getInventory().contains(stack -> stack.is(SYRINGE))) {
+            grant(var0, "needle_work");
+         }
+
+         if (var0.getInventory().contains(stack -> stack.is(ADRENALINE_SHOT) && stack.getCount() >= 16)) {
+            grant(var0, "bulk_order");
          }
       }
    }
@@ -1080,6 +1134,10 @@ public final class CombatInjuries implements ModInitializer {
 
    public static void cureTetanus(ServerPlayer var0) {
       CombatInjuries.InjuryState var1 = state(var0);
+      if (var1.tetanus) {
+         grant(var0, "got_milk");
+      }
+
       var1.tetanus = false;
       var1.tetanusCooldown = 0;
       var1.tetanusDropOffHand = false;
@@ -1110,6 +1168,8 @@ public final class CombatInjuries implements ModInitializer {
       private boolean concussionHeavy;
       private int rushShots;
       private int seenMask;
+      private int crashFromShots;
+      private boolean hysteriaPrev;
       private int shotCheckTicks;
       private int stunTicks;
       private int shotLockoutTicks;
