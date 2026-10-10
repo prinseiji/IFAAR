@@ -450,7 +450,7 @@ public final class CombatInjuriesClient implements ClientModInitializer {
          if (chainFx != null) {
             int cShots = chainFx.getAmplifier() + 1;
             float cProgress = Math.max(0.0F, Math.min(0.999F, 1.0F - chainFx.getDuration() / (float)AdrenalineRules.segmentTicks(cShots)));
-            chainLevel = Math.min(12, (cShots - 1) * 3 + (int)(3.0F * cProgress));
+            chainLevel = Math.min(12, (cShots - 1) * 3 + 1);
          }
 
          setCameraPostEffect(var0, "adrenaline_chain_" + chainLevel);

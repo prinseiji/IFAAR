@@ -832,3 +832,7 @@ Add-ons should depend only on `CombatInjuriesApi`. Logout handling uses `ServerP
 ### 11.17 Round 13 notes
 
 `AdrenalineBolts.init()` is called from `CombatInjuries.onInitialize()`. Hit detection: `ServerLivingEntityEvents.ALLOW_DAMAGE` checks that the direct entity is an `AbstractArrow` whose pickup item is the bolt; the event returns false and discards the arrow. UNVERIFIED on 26.2: the `projectile.arrow.AbstractArrow` import path, `getPickupItem()`, particle/sound constant names, `MobEffects.SPEED/STRENGTH`. Known limits: Infinity on a bow keeps the bolt; dispensers don't fire bolts.
+
+### 11.18 Round 14 notes
+
+Flashing uses `LivingEntityRenderer.extractRenderState` TAIL injection (optional config `combatinjuries.fov.mixins.json`, require 0) to set `state.hasRedOverlay`; if the method name is wrong in 26.2 the flashing silently does not happen. Mobs carry `ADRENALINE_RUSH_EFFECT` (amp 0 weak, 1 strong, invisible) purely as a client-readable timer. Rainbow glitch: cause not confirmed; suspected post-effect pipeline swaps (`setCameraPostEffect`), now limited to 4 chain levels.

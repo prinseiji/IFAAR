@@ -4,7 +4,8 @@
   "package": "com.kodari.combatinjuries.client.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "GameRendererFovMixin"
+    "GameRendererFovMixin",
+    "LivingEntityRendererFlashMixin"
   ],
   "injectors": {
     "defaultRequire": 0

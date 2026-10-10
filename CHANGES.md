@@ -124,3 +124,11 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
   - Tunables at the top of `AdrenalineBolts.java`.
 
 - Build fix: `getPickupItem()` is protected in AbstractArrow, so it is read through a mixin invoker (`mixin/AbstractArrowAccessor.java`, registered in `combatinjuries.mixins.json`).
+
+## Round 14
+
+- **Bolt gore, ULTRAKILL style.** Bursts now throw a hard spray of blood in every direction, an upward geyser, flying chunks of meat and bone (beef, porkchop, rotten flesh, spider eye, bone, mutton) and a dark-red cloud that hangs in the air; louder, deeper sounds.
+- **No more damage ticks.** Injected mobs take no damage at all; they just die (burst) when the timer ends.
+- **Real red flashing.** Injected mobs now flash bright red on and off (weak mobs fast and steady, strong mobs faster and faster toward the end) instead of staying red. Done on the client by `LivingEntityRendererFlashMixin` reading an invisible rush effect the server puts on the mob.
+- **Player flashes red too** during a rush (visible in F5), on the beat of the heartbeat; faster at higher stacks.
+- **Chain filter changes only once per stack** (4 levels instead of 13). Swapping the screen filter often is the main suspect for the rainbow flash glitch reported in round 13 testing.

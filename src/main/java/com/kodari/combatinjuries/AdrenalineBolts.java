@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.particles.BlockParticleOption;
+import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -30,6 +31,8 @@ import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Item.Properties;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 
 /**
@@ -139,6 +142,8 @@ public final class AdrenalineBolts {
       boolean strong = mob.getMaxHealth() > WEAK_MAX_HEALTH && !ALWAYS_WEAK.contains(id);
       UUID shooter = owner == null ? null : owner.getUUID();
       mob.setSilent(true);
+      // Invisible marker effect: the client reads it (and its remaining time) to flash the mob red. Amplifier 1 = strong mob.
+      mob.addEffect(new MobEffectInstance(CombatInjuries.ADRENALINE_RUSH_EFFECT, (strong ? STRONG_TICKS : WEAK_TICKS) + 5, strong ? 1 : 0, false, false, false));
       if (strong) {
          mob.addEffect(new MobEffectInstance(MobEffects.SPEED, STRONG_TICKS, 2));
          mob.addEffect(new MobEffectInstance(MobEffects.STRENGTH, STRONG_TICKS, 1));
@@ -178,29 +183,34 @@ public final class AdrenalineBolts {
 
             continue;
          }
-
-         // Red flashes: slow at first, quicker as the end approaches (weak mobs flash fast the whole time).
-         float left = (float)r.ticksLeft / r.totalTicks;
-         int interval = r.strong ? Math.max(2, (int)(2 + 10 * left)) : 3;
-         if (r.ticksLeft % interval == 0) {
-            r.mob.invulnerableTime = 0;
-            r.mob.hurtServer(r.level, r.level.damageSources().generic(), 0.01F);
-         }
       }
    }
 
-   /** Blood and organs everywhere. Scales with the size of the body. */
+   /** Gore everywhere, ULTRAKILL style: a hard spray of blood, flying chunks of meat and bone, and a lingering red cloud. */
    private static void burst(ServerLevel level, Entity e, float scale) {
       float w = e.getBbWidth();
       float h = e.getBbHeight();
-      int count = Math.min(220, (int)((30 + 70 * w * h) * scale));
+      float size = Math.max(0.3F, w * h);
+      int count = Math.min(400, (int)((60 + 110 * size) * scale));
       double x = e.getX();
       double y = e.getY() + h * 0.5;
       double z = e.getZ();
-      level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.REDSTONE_BLOCK.defaultBlockState()), x, y, z, count, w * 0.45, h * 0.35, w * 0.45, 0.25);
-      level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.NETHER_WART_BLOCK.defaultBlockState()), x, y, z, count / 2, w * 0.4, h * 0.3, w * 0.4, 0.15);
-      level.playSound(null, x, y, z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.HOSTILE, 1.6F, 0.5F);
-      level.playSound(null, x, y, z, SoundEvents.PLAYER_HURT, SoundSource.HOSTILE, 1.0F, 0.5F);
+      // Hard spray of blood in every direction.
+      level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.REDSTONE_BLOCK.defaultBlockState()), x, y, z, count, w * 0.3, h * 0.3, w * 0.3, 0.9);
+      // Upward geyser.
+      level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.REDSTONE_BLOCK.defaultBlockState()), x, y, z, count / 3, w * 0.1, h * 0.8, w * 0.1, 0.5);
+      // Chunks of flesh and bone thrown far.
+      ItemStack[] gibs = {new ItemStack(Items.BEEF), new ItemStack(Items.PORKCHOP), new ItemStack(Items.ROTTEN_FLESH), new ItemStack(Items.SPIDER_EYE), new ItemStack(Items.BONE), new ItemStack(Items.MUTTON)};
+      int perGib = Math.max(4, count / 14);
+      for (ItemStack gib : gibs) {
+         level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, gib), x, y, z, perGib, w * 0.25, h * 0.25, w * 0.25, 0.7);
+      }
+
+      // Slow dark-red cloud that hangs in the air.
+      level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.NETHER_WART_BLOCK.defaultBlockState()), x, y, z, count, w * 0.5, h * 0.5, w * 0.5, 0.12);
+      level.playSound(null, x, y, z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.HOSTILE, 2.0F, 0.5F);
+      level.playSound(null, x, y, z, SoundEvents.PLAYER_HURT, SoundSource.HOSTILE, 1.4F, 0.4F);
+      level.playSound(null, x, y, z, SoundEvents.SKELETON_HURT, SoundSource.HOSTILE, 1.2F, 0.35F);
    }
 
    private static void grant(ServerPlayer player, String id) {
