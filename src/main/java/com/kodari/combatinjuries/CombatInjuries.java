@@ -147,16 +147,6 @@ public final class CombatInjuries implements ModInitializer {
          .register((ModifyOutput)var0 -> {
             var0.accept(ADRENALINE_SHOT);
             var0.accept(SYRINGE);
-            var0.accept(rustyCreativeStack(Items.IRON_SWORD, "item.combatinjuries.rusty_iron_sword"));
-            var0.accept(rustyCreativeStack(Items.IRON_AXE, "item.combatinjuries.rusty_iron_axe"));
-            var0.accept(rustyCreativeStack(Items.IRON_PICKAXE, "item.combatinjuries.rusty_iron_pickaxe"));
-            var0.accept(rustyCreativeStack(Items.IRON_SHOVEL, "item.combatinjuries.rusty_iron_shovel"));
-            var0.accept(rustyCreativeStack(Items.IRON_HOE, "item.combatinjuries.rusty_iron_hoe"));
-            var0.accept(rustyCreativeStack(Items.COPPER_SWORD, "item.combatinjuries.rusty_copper_sword"));
-            var0.accept(rustyCreativeStack(Items.COPPER_AXE, "item.combatinjuries.rusty_copper_axe"));
-            var0.accept(rustyCreativeStack(Items.COPPER_PICKAXE, "item.combatinjuries.rusty_copper_pickaxe"));
-            var0.accept(rustyCreativeStack(Items.COPPER_SHOVEL, "item.combatinjuries.rusty_copper_shovel"));
-            var0.accept(rustyCreativeStack(Items.COPPER_HOE, "item.combatinjuries.rusty_copper_hoe"));
          });
       LootTableEvents.MODIFY
          .register(
@@ -1097,7 +1087,7 @@ public final class CombatInjuries implements ModInitializer {
 
    private static boolean isRustySource(LivingEntity attacker) {
       ItemStack held = attacker.getMainHandItem();
-      if (hasRustyMarker(held) || isCopperTool(held)) {
+      if (hasRustyMarker(held) || isWornMetalTool(held)) {
          return true;
       }
 
@@ -1107,6 +1097,24 @@ public final class CombatInjuries implements ModInitializer {
       }
 
       return false;
+   }
+
+   private static final float RUST_DAMAGE_FRACTION = 0.6F;
+
+   private static boolean isWornMetalTool(ItemStack stack) {
+      if (!stack.isDamageableItem()) {
+         return false;
+      }
+
+      Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+      if (id == null) {
+         return false;
+      }
+
+      String path = id.getPath();
+      boolean metal = path.startsWith("iron_") || path.startsWith("copper_");
+      boolean tool = path.endsWith("_sword") || path.endsWith("_axe") || path.endsWith("_pickaxe") || path.endsWith("_shovel") || path.endsWith("_hoe") || path.endsWith("_spear");
+      return metal && tool && stack.getDamageValue() >= stack.getMaxDamage() * RUST_DAMAGE_FRACTION;
    }
 
    private static boolean isCopperTool(ItemStack var0) {

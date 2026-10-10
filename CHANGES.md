@@ -97,3 +97,9 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Procedural veins** around the screen edges during an adrenaline rush (no art needed; drawn from code in `renderVeins`). 17 main veins plus 2 branches each, grown from the edges toward the centre with a random wobble; a new random pattern each rush. They grow with the stack and the segment progress, and pulse harder with every heartbeat (a double beat at stack 4). Veins only appear in layers: the first 8 from stack 1, 5 more from stack 2, the rest from stack 3.
 - **Vein sound** (`adrenaline_veins.ogg`, converted from your mp3) plays each time the stack goes up.
 - **Popups slower** to make room: a new popup every ~1.8-2.7 s (stack 4: ~1.3-2.2 s), was ~0.9-1.4 s / 0.5-1 s.
+
+## Round 11
+
+- **Tetanus from worn tools, no labels.** Iron and copper swords, axes, pickaxes, shovels and hoes (and copper spears) now turn rusty/weathered on their own once they are 60% worn (`RUST_DAMAGE_FRACTION` in `CombatInjuries.java`, same number as the `threshold` in the item JSONs). Iron shows the tinted rusty texture; copper shows your weathered textures (`textures/item/copper_*_weathered.png`). While a player/mob holds such a tool, its hits can cause tetanus (25%). Copper tools are no longer always rusty, only worn ones. Zombies' own iron tools still count as rusty.
+- Done with client item definitions that override vanilla (`assets/minecraft/items/iron_*.json`, `copper_*.json`, using `range_dispatch` on `minecraft:damage`). Removed the labelled "Rusty ..." entries from the creative tab.
+- Copper spear: added a weathered model from the 32x32 texture. If vanilla's copper spear uses a special in-hand model, delete `assets/minecraft/items/copper_spear.json` to restore the vanilla look.

@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "minecraft:range_dispatch",
+    "property": "minecraft:damage",
+    "scale": 1.0,
+    "entries": [
+      {
+        "threshold": 0.6,
+        "model": {
+          "type": "minecraft:model",
+          "model": "combatinjuries:item/rusty_iron_shovel",
+          "tints": [
+            {
+              "type": "minecraft:constant",
+              "value": 11893336
+            }
+          ]
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "minecraft:item/iron_shovel"
+    }
+  }
+}

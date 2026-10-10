@@ -820,3 +820,7 @@ The advancement tab depends on the `background` format `"combatinjuries:gui/adva
 ### 11.14 Round 10 notes
 
 Veins: `CombatInjuriesClient.buildVeins/renderVeins`. Polylines are generated from a per-rush seed (`veinSeed`), drawn with small `fill` squares; growth target `0.06 + 0.22*(shots-1) + 0.16*segmentProgress`, eased per frame. Tunables: vein counts (17 mains, 2 branches), thickness (`base`, `boost`), colour (`0x6E0A12` -> `0xD01828` on pulse). Sound event `ADRENALINE_VEINS`. Popup spawn interval is in `renderPopups`.
+
+### 11.15 Round 11 notes
+
+Rust is now visual-by-durability: `assets/minecraft/items/{iron,copper}_*.json` override vanilla definitions with `range_dispatch` (property `minecraft:damage`, threshold 0.6). Gameplay side: `isRustySource` -> `isWornMetalTool`. The older `combatinjuries_rusty` marker + `rusty_*` item models remain for zombie-held tools and `/injurytest rusty_zombie`. UNVERIFIED on 26.2: the item definition format (`range_dispatch`/`damage`) and that the vanilla definitions are plain single-model.
