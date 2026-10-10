@@ -122,3 +122,5 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
   - A player killed by an IFAAR overdose bursts into red mist (particles + sound).
   - 3 achievements in the IFAAR tab: Loaded Question, Meat Confetti, Overclocked.
   - Tunables at the top of `AdrenalineBolts.java`.
+
+- Build fix: `getPickupItem()` is protected in AbstractArrow, so it is read through a mixin invoker (`mixin/AbstractArrowAccessor.java`, registered in `combatinjuries.mixins.json`).

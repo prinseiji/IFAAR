@@ -80,7 +80,7 @@ public final class AdrenalineBolts {
 
       ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
          if (source.getDirectEntity() instanceof AbstractArrow arrow && entity instanceof Mob mob && mob.level() instanceof ServerLevel level) {
-            if (arrow.getPickupItem().is(ADRENALINE_BOLT)) {
+            if (((com.kodari.combatinjuries.mixin.AbstractArrowAccessor)(Object)arrow).ifaar$getPickupItem().is(ADRENALINE_BOLT)) {
                inject(mob, level, arrow.getOwner());
                arrow.discard();
                return false;
