@@ -103,3 +103,12 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Tetanus from worn tools, no labels.** Iron and copper swords, axes, pickaxes, shovels and hoes (and copper spears) now turn rusty/weathered on their own once they are 60% worn (`RUST_DAMAGE_FRACTION` in `CombatInjuries.java`, same number as the `threshold` in the item JSONs). Iron shows the tinted rusty texture; copper shows your weathered textures (`textures/item/copper_*_weathered.png`). While a player/mob holds such a tool, its hits can cause tetanus (25%). Copper tools are no longer always rusty, only worn ones. Zombies' own iron tools still count as rusty.
 - Done with client item definitions that override vanilla (`assets/minecraft/items/iron_*.json`, `copper_*.json`, using `range_dispatch` on `minecraft:damage`). Removed the labelled "Rusty ..." entries from the creative tab.
 - Copper spear: added a weathered model from the 32x32 texture. If vanilla's copper spear uses a special in-hand model, delete `assets/minecraft/items/copper_spear.json` to restore the vanilla look.
+
+## Round 12
+
+- **Sleeping with hemorrhage works.** Bleed damage is paused while you are in bed (it used to knock you out of bed before you could sleep). Sleeping through the night still cures it.
+- **Perfect-chain stun** 3 s -> 2 s (`CASHOUT_STUN_TICKS` 60 -> 40).
+- **Fracture recovery** 10 s -> 5 s of standing still (`FRACTURE_STILL_TICKS` 200 -> 100 in `CombatInjuries.java`).
+- **Crash damage ignores armour and protection enchantments** (added to the `bypasses_armor` / `bypasses_enchantments` damage tags).
+- **Logout** clears a player's injury state.
+- **Add-on API** (`CombatInjuriesApi.java`): events `RUSH_STARTED`, `RUSH_ENDED(cashedOut)`, `OVERDOSED`, and queries `hasInjury(player, id)`, `rushShots(player)`, `isStunned(player)`.

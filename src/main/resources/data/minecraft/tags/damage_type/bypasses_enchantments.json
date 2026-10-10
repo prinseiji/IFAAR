@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "combatinjuries:adrenaline_overdose"
+    "combatinjuries:adrenaline_overdose",
+    "combatinjuries:adrenaline_crash"
   ]
 }

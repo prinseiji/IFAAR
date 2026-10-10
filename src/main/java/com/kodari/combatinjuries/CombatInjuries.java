@@ -12,6 +12,7 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents.ModifyOutput;
 import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.AllowResettingTime;
 import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.StartSleeping;
@@ -94,6 +95,7 @@ public final class CombatInjuries implements ModInitializer {
       "copper_sword", "copper_axe", "copper_pickaxe", "copper_shovel", "copper_hoe"
    );
    private static final int SLEEP_TICKS_REQUIRED = 100;
+   private static final int FRACTURE_STILL_TICKS = 100;
    private static final ResourceKey<Item> ADRENALINE_KEY = ResourceKey.create(
       Registries.ITEM, Identifier.fromNamespaceAndPath("combatinjuries", "adrenaline_shot")
    );
@@ -211,6 +213,7 @@ public final class CombatInjuries implements ModInitializer {
                   .then(Commands.literal("clear").executes(var0x -> runInjuryTest((CommandSourceStack)var0x.getSource(), "clear")))
             )
          );
+      ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> STATES.remove(handler.getPlayer().getUUID()));
       EntitySleepEvents.START_SLEEPING.register((StartSleeping)(var0, var1) -> {
          if (var0 instanceof ServerPlayer var2) {
             CombatInjuries.InjuryState startState = state(var2);
@@ -464,6 +467,7 @@ public final class CombatInjuries implements ModInitializer {
                var5.adrenalineCrashTicks = 0;
                var5.storedAdrenalineDamage = 0.0F;
                grant(var3, "first_dose");
+               CombatInjuriesApi.RUSH_STARTED.invoker().on(var3);
                return InteractionResult.SUCCESS;
             }
 
@@ -501,6 +505,7 @@ public final class CombatInjuries implements ModInitializer {
       int shots = Math.max(1, Math.min(AdrenalineRules.MAX_SHOTS, var1.rushShots));
       var1.adrenalineRushTicks = 0;
       var1.rushShots = 0;
+      CombatInjuriesApi.RUSH_ENDED.invoker().on(var0, cashOut);
       if (cashOut) {
          grant(var0, "quit_ahead");
          var1.storedAdrenalineDamage = 0.0F;
@@ -521,6 +526,7 @@ public final class CombatInjuries implements ModInitializer {
    /** Lethal damage that ignores armor, effects and enchantments. A Totem of Undying still saves you, at a heavy price. Creative players keep the penalty but not the death. */
    private static void overdose(ServerPlayer var0, CombatInjuries.InjuryState var1, int shotsBefore, boolean fake) {
       grant(var0, "overdose");
+      CombatInjuriesApi.OVERDOSED.invoker().on(var0);
       if (shotsBefore < AdrenalineRules.MAX_SHOTS) {
          grant(var0, "overdose_early");
       }
@@ -816,7 +822,7 @@ public final class CombatInjuries implements ModInitializer {
          }
       }
 
-      if (var1.hemorrhage) {
+      if (var1.hemorrhage && !var0.isSleeping()) {
          var1.bleedTicks++;
          int var6 = !var0.isSprinting() && !(var0.getDeltaMovement().horizontalDistance() > 0.01) ? 20 : 10;
          if (var1.bleedTicks >= var6) {
@@ -894,7 +900,7 @@ public final class CombatInjuries implements ModInitializer {
       boolean var17 = var1.hasRotationSnapshot && (var14 != var1.lastStillYaw || var16 != var1.lastStillPitch);
       if (var1.fracture && var0.onGround() && !var0.isSprinting() && var0.getDeltaMovement().horizontalDistance() < 0.001 && !var17) {
          var1.stillTicks++;
-         if (var1.stillTicks >= 200) {
+         if (var1.stillTicks >= FRACTURE_STILL_TICKS) {
             var1.fracture = false;
             var1.stillTicks = 0;
          }
@@ -1149,6 +1155,29 @@ public final class CombatInjuries implements ModInitializer {
       var1.tetanus = false;
       var1.tetanusCooldown = 0;
       var1.tetanusDropOffHand = false;
+   }
+
+   public static boolean hasInjury(Player player, String id) {
+      CombatInjuries.InjuryState st = STATES.get(player.getUUID());
+      if (st == null) {
+         return false;
+      }
+
+      return switch (id) {
+         case "hemorrhage" -> st.hemorrhage;
+         case "tetanus" -> st.tetanus;
+         case "concussion" -> st.concussionTicks > 0;
+         case "fracture" -> st.fracture;
+         case "winded" -> st.winded;
+         case "asphyxia" -> st.asphyxia;
+         case "hysteria" -> st.hysteria;
+         default -> false;
+      };
+   }
+
+   public static int rushShotsOf(Player player) {
+      CombatInjuries.InjuryState st = STATES.get(player.getUUID());
+      return st != null && st.adrenalineRushTicks > 0 ? st.rushShots : 0;
    }
 
    public static boolean isStunned(Player var0) {

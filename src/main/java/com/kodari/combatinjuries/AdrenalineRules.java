@@ -30,7 +30,7 @@ public final class AdrenalineRules {
    /** Crash bill multiplier by number of shots (index = shots). */
    public static final float[] CRASH_MULT = {1.0F, 1.0F, 1.5F, 2.0F, 2.0F};
    /** Stun after a perfect 4-shot chain (cash-out). */
-   public static final int CASHOUT_STUN_TICKS = 60;
+   public static final int CASHOUT_STUN_TICKS = 40;
    /** Stun when a shot is pressed too early at a low stack. */
    public static final int SHOCK_STUN_TICKS = 40;
    /** Stun when a Totem of Undying saves you from an overdose. */

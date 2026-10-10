@@ -824,3 +824,7 @@ Veins: `CombatInjuriesClient.buildVeins/renderVeins`. Polylines are generated fr
 ### 11.15 Round 11 notes
 
 Rust is now visual-by-durability: `assets/minecraft/items/{iron,copper}_*.json` override vanilla definitions with `range_dispatch` (property `minecraft:damage`, threshold 0.6). Gameplay side: `isRustySource` -> `isWornMetalTool`. The older `combatinjuries_rusty` marker + `rusty_*` item models remain for zombie-held tools and `/injurytest rusty_zombie`. UNVERIFIED on 26.2: the item definition format (`range_dispatch`/`damage`) and that the vanilla definitions are plain single-model.
+
+### 11.16 Round 12 notes
+
+Add-ons should depend only on `CombatInjuriesApi`. Logout handling uses `ServerPlayConnectionEvents.DISCONNECT` with `handler.getPlayer()` (UNVERIFIED name on 26.2). Relogging clears injuries (state is in memory only; nothing is persisted across server restarts).
