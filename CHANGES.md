@@ -133,3 +133,11 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Player flashes red too** during a rush (visible in F5), on the beat of the heartbeat; faster at higher stacks.
 - **Chain filter changes only once per stack** (4 levels instead of 13). Swapping the screen filter often is the main suspect for the rainbow flash glitch reported in round 13 testing.
 - Build fix: gib particles take an Item, not an ItemStack.
+
+## Round 14b
+
+- **Mob red flash fix.** The client cannot see another entity's potion effects, so the flash had nothing to read. The server now encodes the bolt rush in the mob's air supply (a value vanilla already syncs): weak = -1000 - ticksLeft, strong = -2000 - ticksLeft. `LivingEntityRendererFlashMixin` decodes it. The invisible rush effect on mobs was removed. The first time the hook sees a rushing mob it prints "[IFAAR] red flash hook is active" to the game log (`logs/latest.log`), which tells us the mixin is applying.
+
+## Round 14c
+
+- **Arrow impact is back.** The bolt now deals normal arrow damage and the arrow sticks in the mob like any arrow. Only if that single hit would kill the mob is the damage skipped (the mob must live to burst); the arrow is still stuck into it visually.

@@ -84,8 +84,12 @@ public final class AdrenalineBolts {
          if (source.getDirectEntity() instanceof AbstractArrow arrow && entity instanceof Mob mob && mob.level() instanceof ServerLevel level) {
             if (((com.kodari.combatinjuries.mixin.AbstractArrowAccessor)(Object)arrow).ifaar$getPickupItem().is(ADRENALINE_BOLT)) {
                inject(mob, level, arrow.getOwner());
-               arrow.discard();
-               return false;
+               if (amount >= mob.getHealth()) {
+                  // The hit alone would kill it: let it live so it can burst, but still stick the arrow in it.
+                  mob.setArrowCount(mob.getArrowCount() + 1);
+                  arrow.discard();
+                  return false;
+               }
             }
          }
 
@@ -121,6 +125,15 @@ public final class AdrenalineBolts {
       return false;
    }
 
+   /**
+    * The client cannot see another entity's potion effects, so the rush state is sent through a value vanilla already syncs:
+    * the air supply. Weak mobs sit at -1000 - ticksLeft, strong mobs at -2000 - ticksLeft (the client decodes this in
+    * LivingEntityRendererFlashMixin to flash the mob red).
+    */
+   private static void markForClient(Rush r) {
+      r.mob.setAirSupply((r.strong ? -2000 : -1000) - r.ticksLeft);
+   }
+
    private static String idOf(Entity entity) {
       Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
       return id == null ? "" : id.getPath();
@@ -141,8 +154,6 @@ public final class AdrenalineBolts {
       boolean strong = mob.getMaxHealth() > WEAK_MAX_HEALTH && !ALWAYS_WEAK.contains(id);
       UUID shooter = owner == null ? null : owner.getUUID();
       mob.setSilent(true);
-      // Invisible marker effect: the client reads it (and its remaining time) to flash the mob red. Amplifier 1 = strong mob.
-      mob.addEffect(new MobEffectInstance(CombatInjuries.ADRENALINE_RUSH_EFFECT, (strong ? STRONG_TICKS : WEAK_TICKS) + 5, strong ? 1 : 0, false, false, false));
       if (strong) {
          mob.addEffect(new MobEffectInstance(MobEffects.SPEED, STRONG_TICKS, 2));
          mob.addEffect(new MobEffectInstance(MobEffects.STRENGTH, STRONG_TICKS, 1));
@@ -153,7 +164,9 @@ public final class AdrenalineBolts {
          mob.setNoAi(true);
       }
 
-      RUSHES.add(new Rush(mob, level, shooter, strong, strong ? STRONG_TICKS : WEAK_TICKS));
+      Rush rush = new Rush(mob, level, shooter, strong, strong ? STRONG_TICKS : WEAK_TICKS);
+      markForClient(rush);
+      RUSHES.add(rush);
    }
 
    private static void tickRushes(MinecraftServer server) {
@@ -182,6 +195,8 @@ public final class AdrenalineBolts {
 
             continue;
          }
+
+         markForClient(r);
       }
    }
 

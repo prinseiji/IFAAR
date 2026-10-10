@@ -835,4 +835,4 @@ Add-ons should depend only on `CombatInjuriesApi`. Logout handling uses `ServerP
 
 ### 11.18 Round 14 notes
 
-Flashing uses `LivingEntityRenderer.extractRenderState` TAIL injection (optional config `combatinjuries.fov.mixins.json`, require 0) to set `state.hasRedOverlay`; if the method name is wrong in 26.2 the flashing silently does not happen. Mobs carry `ADRENALINE_RUSH_EFFECT` (amp 0 weak, 1 strong, invisible) purely as a client-readable timer. Rainbow glitch: cause not confirmed; suspected post-effect pipeline swaps (`setCameraPostEffect`), now limited to 4 chain levels.
+Flashing (mobs read the rush from their synced air supply, see AdrenalineBolts.markForClient) uses `LivingEntityRenderer.extractRenderState` TAIL injection (optional config `combatinjuries.fov.mixins.json`, require 0) to set `state.hasRedOverlay`; if the method name is wrong in 26.2 the flashing silently does not happen. Mobs carry `ADRENALINE_RUSH_EFFECT` (amp 0 weak, 1 strong, invisible) purely as a client-readable timer. Rainbow glitch: cause not confirmed; suspected post-effect pipeline swaps (`setCameraPostEffect`), now limited to 4 chain levels.
