@@ -141,6 +141,9 @@ public final class CombatInjuries implements ModInitializer {
    public static final SoundEvent ADRENALINE_POWER_DOWN = registerSound("adrenaline_powerdown");
    public static final SoundEvent ADRENALINE_POWER_DOWN_GRAND = registerSound("adrenaline_powerdown_grand");
    public static final SoundEvent ADRENALINE_VEINS = registerSound("adrenaline_veins");
+   public static final SoundEvent BOLT_BEEP = registerSound("bolt_beep");
+   public static final SoundEvent BOLT_BURST_WEAK = registerSound("bolt_burst_weak");
+   public static final SoundEvent BOLT_BURST_STRONG = registerSound("bolt_burst_strong");
    public static final SoundEvent ADRENALINE_HEARTBEAT = registerSound("adrenaline_heartbeat");
    private static final Map<UUID, CombatInjuries.InjuryState> STATES = new HashMap<>();
 

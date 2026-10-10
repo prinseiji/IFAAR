@@ -13,5 +13,8 @@
   "adrenaline_powerdown": { "sounds": [ "combatinjuries:adrenaline_powerdown" ] },
   "adrenaline_powerdown_grand": { "sounds": [ "combatinjuries:adrenaline_powerdown_grand" ] },
   "adrenaline_veins": { "sounds": [ "combatinjuries:adrenaline_veins" ] },
-  "adrenaline_heartbeat": { "sounds": [ "combatinjuries:adrenaline_heartbeat" ] }
+  "adrenaline_heartbeat": { "sounds": [ "combatinjuries:adrenaline_heartbeat" ] },
+  "bolt_beep": { "sounds": [ "combatinjuries:bolt_beep" ] },
+  "bolt_burst_weak": { "sounds": [ "combatinjuries:bolt_burst_weak" ] },
+  "bolt_burst_strong": { "sounds": [ "combatinjuries:bolt_burst_strong" ] }
 }

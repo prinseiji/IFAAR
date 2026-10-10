@@ -98,7 +98,7 @@ public final class AdrenalineBolts {
 
       ServerLivingEntityEvents.AFTER_DEATH.register((dead, source) -> {
          if (dead instanceof ServerPlayer player && source.is(IFAAR_OVERDOSE) && player.level() instanceof ServerLevel level) {
-            burst(level, player, 1.0F);
+            burst(level, player, 1.0F, true);
          }
       });
 
@@ -181,7 +181,7 @@ public final class AdrenalineBolts {
          r.ticksLeft--;
          if (r.ticksLeft <= 0) {
             it.remove();
-            burst(r.level, r.mob, 1.0F);
+            burst(r.level, r.mob, 1.0F, r.strong);
             r.mob.discard();
             if (r.shooter != null) {
                ServerPlayer p = server.getPlayerList().getPlayer(r.shooter);
@@ -197,11 +197,18 @@ public final class AdrenalineBolts {
          }
 
          markForClient(r);
+         // Bomb-style beep on every red flash.
+         float left = (float)r.ticksLeft / r.totalTicks;
+         int interval = r.strong ? Math.max(2, 2 + (int)(10 * left)) : 3;
+         if (r.ticksLeft % (2 * interval) == 0) {
+            float pitch = 1.0F + (1.0F - left) * (r.strong ? 0.8F : 0.4F);
+            r.level.playSound(null, r.mob.getX(), r.mob.getY(), r.mob.getZ(), CombatInjuries.BOLT_BEEP, SoundSource.HOSTILE, 1.2F, pitch);
+         }
       }
    }
 
    /** Gore everywhere, ULTRAKILL style: a hard spray of blood, flying chunks of meat and bone, and a lingering red cloud. */
-   private static void burst(ServerLevel level, Entity e, float scale) {
+   private static void burst(ServerLevel level, Entity e, float scale, boolean strong) {
       float w = e.getBbWidth();
       float h = e.getBbHeight();
       float size = Math.max(0.3F, w * h);
@@ -222,9 +229,8 @@ public final class AdrenalineBolts {
 
       // Slow dark-red cloud that hangs in the air.
       level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.NETHER_WART_BLOCK.defaultBlockState()), x, y, z, count, w * 0.5, h * 0.5, w * 0.5, 0.12);
-      level.playSound(null, x, y, z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.HOSTILE, 2.0F, 0.5F);
-      level.playSound(null, x, y, z, SoundEvents.PLAYER_HURT, SoundSource.HOSTILE, 1.4F, 0.4F);
-      level.playSound(null, x, y, z, SoundEvents.SKELETON_HURT, SoundSource.HOSTILE, 1.2F, 0.35F);
+      level.playSound(null, x, y, z, strong ? CombatInjuries.BOLT_BURST_STRONG : CombatInjuries.BOLT_BURST_WEAK, SoundSource.HOSTILE, 2.5F, 1.0F);
+      level.playSound(null, x, y, z, SoundEvents.BONE_BLOCK_BREAK, SoundSource.HOSTILE, 1.2F, 0.6F);
    }
 
    private static void grant(ServerPlayer player, String id) {

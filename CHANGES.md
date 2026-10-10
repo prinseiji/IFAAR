@@ -141,3 +141,8 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 ## Round 14c
 
 - **Arrow impact is back.** The bolt now deals normal arrow damage and the arrow sticks in the mob like any arrow. Only if that single hit would kill the mob is the damage skipped (the mob must live to burst); the arrow is still stuck into it visually.
+
+## Round 15
+
+- **Brighter red flash.** Besides the vanilla (see-through) hurt overlay, flashing mobs now also get a solid bright-red outline (`state.outlineColor`, visible through walls) while the flash is on.
+- **Bolt sounds.** `bolt_beep.ogg` (timer beep) plays on every red flash, pitch rising as the end nears (more so for strong mobs). Bursts use `bolt_burst_weak.ogg` (grit/wet impact) for weak mobs and `bolt_burst_strong.ogg` (heavy punch) for strong mobs, plus a low bone crunch. Player red mist uses the heavy one. Sound events: `BOLT_BEEP`, `BOLT_BURST_WEAK`, `BOLT_BURST_STRONG`.

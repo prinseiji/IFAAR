@@ -51,6 +51,9 @@ public abstract class LivingEntityRendererFlashMixin {
 
       int ticksLeft = strong ? -2000 - air + 4 : -1000 - air + 4;
       int interval = strong ? Math.max(2, 2 + (int)(10.0F * ticksLeft / 120.0F)) : 3;
-      state.hasRedOverlay = (Math.max(0, ticksLeft) / interval) % 2 == 0;
+      boolean on = (Math.max(0, ticksLeft) / interval) % 2 == 0;
+      state.hasRedOverlay = on;
+      // The vanilla hurt overlay is see-through, so also draw a solid bright-red outline while the flash is on.
+      state.outlineColor = on ? 0xFFFF1A1A : 0;
    }
 }
