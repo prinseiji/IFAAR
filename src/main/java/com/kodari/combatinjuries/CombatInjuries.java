@@ -145,6 +145,7 @@ public final class CombatInjuries implements ModInitializer {
    private static final Map<UUID, CombatInjuries.InjuryState> STATES = new HashMap<>();
 
    public void onInitialize() {
+      AdrenalineBolts.init();
       CreativeModeTabEvents.modifyOutputEvent(ResourceKey.create(Registries.CREATIVE_MODE_TAB, Identifier.withDefaultNamespace("tools_and_utilities")))
          .register((ModifyOutput)var0 -> {
             var0.accept(ADRENALINE_SHOT);

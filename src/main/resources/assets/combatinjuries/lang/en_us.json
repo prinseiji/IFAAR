@@ -88,5 +88,12 @@
   "advancements.combatinjuries.back_to_reality.title": "Back To Reality",
   "advancements.combatinjuries.back_to_reality.description": "Come down from hysteria.",
   "advancements.combatinjuries.dug_grave.title": "Dug My Own Grave",
-  "advancements.combatinjuries.dug_grave.description": "Get asphyxia from being buried."
+  "advancements.combatinjuries.dug_grave.description": "Get asphyxia from being buried.",
+  "item.combatinjuries.adrenaline_bolt": "Adrenaline Bolt",
+  "advancements.combatinjuries.bolt_get.title": "Loaded Question",
+  "advancements.combatinjuries.bolt_get.description": "Craft an adrenaline bolt.",
+  "advancements.combatinjuries.burst.title": "Meat Confetti",
+  "advancements.combatinjuries.burst.description": "Shoot a weak mob and watch it come apart.",
+  "advancements.combatinjuries.overclocked.title": "Overclocked",
+  "advancements.combatinjuries.overclocked.description": "Let a strong mob run itself dry on adrenaline."
 }

@@ -112,3 +112,13 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Crash damage ignores armour and protection enchantments** (added to the `bypasses_armor` / `bypasses_enchantments` damage tags).
 - **Logout** clears a player's injury state.
 - **Add-on API** (`CombatInjuriesApi.java`): events `RUSH_STARTED`, `RUSH_ENDED(cashedOut)`, `OVERDOSED`, and queries `hasInjury(player, id)`, `rushShots(player)`, `isStunned(player)`.
+
+## Round 13
+
+- **Adrenaline Bolt** (now part of IFAAR, `AdrenalineBolts.java`). Craft 1 arrow + 1 iron nugget + 1 adrenaline shot. It is in the `minecraft:arrows` tag, so crossbows (and bows) load it. It deals no arrow damage and is used up on hit.
+  - Weak mobs (16 max HP or less, plus wolves): freeze, flash red fast for ~1.5 s, then burst into blood. No loot or XP.
+  - Strong mobs: ~6 s of Speed III + Strength II, hunting the shooter, flashing red faster and faster, then burst. No loot or XP.
+  - Immune: Warden, Wither, Ender Dragon (take normal arrow damage). Players are not affected by bolts.
+  - A player killed by an IFAAR overdose bursts into red mist (particles + sound).
+  - 3 achievements in the IFAAR tab: Loaded Question, Meat Confetti, Overclocked.
+  - Tunables at the top of `AdrenalineBolts.java`.

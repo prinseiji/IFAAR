@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "combatinjuries:adrenaline_bolt"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.burst.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.burst.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "combatinjuries:bolt_get",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

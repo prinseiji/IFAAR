@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "combatinjuries:adrenaline_bolt"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.overclocked.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.overclocked.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "combatinjuries:burst",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

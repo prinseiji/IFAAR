@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "combatinjuries:adrenaline_bolt"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.bolt_get.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.bolt_get.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "combatinjuries:obtain_shot",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [
+    [
+      "done"
+    ]
+  ]
+}

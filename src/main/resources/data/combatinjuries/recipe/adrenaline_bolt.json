@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "equipment",
+  "ingredients": [
+    "minecraft:arrow",
+    "minecraft:iron_nugget",
+    "combatinjuries:adrenaline_shot"
+  ],
+  "result": {
+    "id": "combatinjuries:adrenaline_bolt",
+    "count": 1
+  }
+}

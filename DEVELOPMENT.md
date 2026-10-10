@@ -828,3 +828,7 @@ Rust is now visual-by-durability: `assets/minecraft/items/{iron,copper}_*.json` 
 ### 11.16 Round 12 notes
 
 Add-ons should depend only on `CombatInjuriesApi`. Logout handling uses `ServerPlayConnectionEvents.DISCONNECT` with `handler.getPlayer()` (UNVERIFIED name on 26.2). Relogging clears injuries (state is in memory only; nothing is persisted across server restarts).
+
+### 11.17 Round 13 notes
+
+`AdrenalineBolts.init()` is called from `CombatInjuries.onInitialize()`. Hit detection: `ServerLivingEntityEvents.ALLOW_DAMAGE` checks that the direct entity is an `AbstractArrow` whose pickup item is the bolt; the event returns false and discards the arrow. UNVERIFIED on 26.2: the `projectile.arrow.AbstractArrow` import path, `getPickupItem()`, particle/sound constant names, `MobEffects.SPEED/STRENGTH`. Known limits: Infinity on a bow keeps the bolt; dispensers don't fire bolts.
