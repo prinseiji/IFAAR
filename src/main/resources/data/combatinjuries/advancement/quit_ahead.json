@@ -1,16 +1,16 @@
 {
-  "parent": "combatinjuries:root",
+  "parent": "combatinjuries:chain_4",
   "display": {
     "icon": {
-      "id": "minecraft:redstone"
+      "id": "minecraft:clock"
     },
     "title": {
-      "translate": "advancements.combatinjuries.hemorrhage.title"
+      "translate": "advancements.combatinjuries.quit_ahead.title"
     },
     "description": {
-      "translate": "advancements.combatinjuries.hemorrhage.description"
+      "translate": "advancements.combatinjuries.quit_ahead.description"
     },
-    "frame": "task",
+    "frame": "challenge",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

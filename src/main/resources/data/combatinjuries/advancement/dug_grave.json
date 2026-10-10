@@ -1,14 +1,14 @@
 {
-  "parent": "combatinjuries:root",
+  "parent": "combatinjuries:asphyxia",
   "display": {
     "icon": {
-      "id": "minecraft:redstone"
+      "id": "minecraft:gravel"
     },
     "title": {
-      "translate": "advancements.combatinjuries.hemorrhage.title"
+      "translate": "advancements.combatinjuries.dug_grave.title"
     },
     "description": {
-      "translate": "advancements.combatinjuries.hemorrhage.description"
+      "translate": "advancements.combatinjuries.dug_grave.description"
     },
     "frame": "task",
     "show_toast": true,

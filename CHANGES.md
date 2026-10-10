@@ -79,3 +79,21 @@ Build: see the GitHub Actions workflow; the finished jar is IFAAR.jar (not the -
 - **Chain filter.** 13 pre-baked filters `adrenaline_chain_0..12`, a muted version of the Hysteria look (intensity 0.20 -> 0.65, contrast 1.1 -> 1.85, darkness 0 -> 0.10). The level rises through each segment and with each stack (3 levels per stack).
 - **Vignette** creeps further per stack (80 px depth + 70 px per stack) and is stronger.
 - **16 advancements** (data/combatinjuries/advancement). They sit in the vanilla Adventure tab. Granted from `CombatInjuries.grant()`. Injury achievements fire the first time each status is seen; "How Did We Get Here?" needs all 7 injuries in one life (reset on death). New test command: `/injurytest fake_qte`.
+
+## Round 8b
+
+- **Fake QTE redone.** It is now a glitched, electric-blue copy of the real syringe bar (sliced/offset syringe, blue wash, flickering, scan tears) sitting to the LEFT of the real bar, with a fast marker with ghost trails sweeping down to a strobing "window". It shows twice per segment from the 3rd shot on, during the danger zone only. Pressing while it shows is an overdose (and the "obvious" achievement).
+- **Hysteria crazier**, ramping over its first 20 s: heartbeat-synced black vignette that closes in, torn static bands, more static dashes, random 70 ms white flashes, FOV wobble with a heartbeat thump, a heartbeat that speeds up (800 -> 480 ms) and phantom sounds that come up to 65% more often.
+- **Achievements get their own tab** ("IFAAR", root advancement + a generated dark-red background tile `textures/gui/advancements/ifaar.png`) and **15 more**: Needle Work, Is This Even Legal?, The Comedown, Paid In Full, Quit While You're Ahead, Take Two, Too Eager, Can't Touch This, Ring My Bell, Applied Pressure, Sleep It Off, Got Milk?, Walking Disaster, Back To Reality, Dug My Own Grave. 31 in total plus the root.
+
+## Round 9
+
+- **Eased windows, faster marker.** The good-timing window no longer shrinks to 1 s: it is now 2.5 s / 2.5 s / 2.25 s / 2 s (stacks 1-4). Difficulty comes from the marker instead: each segment after a shot is shorter, so the marker sweeps the same bar faster. Segment length by shots: 30 s, 30 s, 20 s, 15 s, 11 s (index = shots; the 1st-shot segment is 30 s, the 2nd-shot segment 20 s, the 3rd-shot segment 15 s, the 4th-shot segment 11 s). Marker speed is about 1x / 1.5x / 2x / 2.7x. The cooldown (grey) also shrinks: 10 s / 7 s / 5 s / 4 s. All in `AdrenalineRules.java`.
+- **Fake QTE** windows are now placed as a share of each segment's danger zone (`fakeStart1/2`, `fakeLength1/2`) so they still fit the shorter segments.
+- **Bar slightly bigger**: the syringe bar and the fake bar are about 12% larger (0.34 -> 0.38 of the screen height).
+
+## Round 10
+
+- **Procedural veins** around the screen edges during an adrenaline rush (no art needed; drawn from code in `renderVeins`). 17 main veins plus 2 branches each, grown from the edges toward the centre with a random wobble; a new random pattern each rush. They grow with the stack and the segment progress, and pulse harder with every heartbeat (a double beat at stack 4). Veins only appear in layers: the first 8 from stack 1, 5 more from stack 2, the rest from stack 3.
+- **Vein sound** (`adrenaline_veins.ogg`, converted from your mp3) plays each time the stack goes up.
+- **Popups slower** to make room: a new popup every ~1.8-2.7 s (stack 4: ~1.3-2.2 s), was ~0.9-1.4 s / 0.5-1 s.

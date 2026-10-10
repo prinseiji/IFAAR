@@ -1,14 +1,14 @@
 {
-  "parent": "combatinjuries:root",
+  "parent": "combatinjuries:hemorrhage",
   "display": {
     "icon": {
-      "id": "minecraft:redstone"
+      "id": "minecraft:golden_apple"
     },
     "title": {
-      "translate": "advancements.combatinjuries.hemorrhage.title"
+      "translate": "advancements.combatinjuries.stop_bleeding.title"
     },
     "description": {
-      "translate": "advancements.combatinjuries.hemorrhage.description"
+      "translate": "advancements.combatinjuries.stop_bleeding.description"
     },
     "frame": "task",
     "show_toast": true,

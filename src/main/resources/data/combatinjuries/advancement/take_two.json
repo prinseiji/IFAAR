@@ -1,16 +1,16 @@
 {
-  "parent": "combatinjuries:root",
+  "parent": "combatinjuries:overdose",
   "display": {
     "icon": {
-      "id": "minecraft:redstone"
+      "id": "minecraft:totem_of_undying"
     },
     "title": {
-      "translate": "advancements.combatinjuries.hemorrhage.title"
+      "translate": "advancements.combatinjuries.take_two.title"
     },
     "description": {
-      "translate": "advancements.combatinjuries.hemorrhage.description"
+      "translate": "advancements.combatinjuries.take_two.description"
     },
-    "frame": "task",
+    "frame": "challenge",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

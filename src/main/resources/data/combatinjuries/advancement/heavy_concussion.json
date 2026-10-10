@@ -1,16 +1,16 @@
 {
-  "parent": "combatinjuries:root",
+  "parent": "combatinjuries:concussion",
   "display": {
     "icon": {
-      "id": "minecraft:redstone"
+      "id": "minecraft:creeper_head"
     },
     "title": {
-      "translate": "advancements.combatinjuries.hemorrhage.title"
+      "translate": "advancements.combatinjuries.heavy_concussion.title"
     },
     "description": {
-      "translate": "advancements.combatinjuries.hemorrhage.description"
+      "translate": "advancements.combatinjuries.heavy_concussion.description"
     },
-    "frame": "task",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "combatinjuries:adrenaline_shot"
+    },
+    "title": {
+      "translate": "advancements.combatinjuries.root.title"
+    },
+    "description": {
+      "translate": "advancements.combatinjuries.root.description"
+    },
+    "background": "combatinjuries:gui/advancements/ifaar",
+    "frame": "task",
+    "show_toast": false,
+    "announce_to_chat": false,
+    "hidden": false
+  },
+  "criteria": {
+    "auto": {
+      "trigger": "minecraft:tick"
+    }
+  },
+  "requirements": [
+    [
+      "auto"
+    ]
+  ]
+}

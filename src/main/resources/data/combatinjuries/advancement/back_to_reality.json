@@ -1,16 +1,16 @@
 {
-  "parent": "combatinjuries:root",
+  "parent": "combatinjuries:hysteria",
   "display": {
     "icon": {
-      "id": "minecraft:redstone"
+      "id": "minecraft:ender_eye"
     },
     "title": {
-      "translate": "advancements.combatinjuries.hemorrhage.title"
+      "translate": "advancements.combatinjuries.back_to_reality.title"
     },
     "description": {
-      "translate": "advancements.combatinjuries.hemorrhage.description"
+      "translate": "advancements.combatinjuries.back_to_reality.description"
     },
-    "frame": "task",
+    "frame": "goal",
     "show_toast": true,
     "announce_to_chat": true,
     "hidden": false

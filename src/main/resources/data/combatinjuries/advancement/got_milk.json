@@ -1,14 +1,14 @@
 {
-  "parent": "combatinjuries:root",
+  "parent": "combatinjuries:tetanus",
   "display": {
     "icon": {
-      "id": "minecraft:redstone"
+      "id": "minecraft:milk_bucket"
     },
     "title": {
-      "translate": "advancements.combatinjuries.hemorrhage.title"
+      "translate": "advancements.combatinjuries.got_milk.title"
     },
     "description": {
-      "translate": "advancements.combatinjuries.hemorrhage.description"
+      "translate": "advancements.combatinjuries.got_milk.description"
     },
     "frame": "task",
     "show_toast": true,

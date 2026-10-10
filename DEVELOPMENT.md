@@ -810,3 +810,13 @@ See CHANGES.md "Round 7". The timing bar no longer shows shot pips and needs no 
 
 ### 11.11 Round 8 additions
 See CHANGES.md "Round 8". Things to verify first if something misbehaves: (1) `GameRenderer.getFov` may have a different name/return type in 26.2 - the FOV mixin is non-required so the effect would just be missing (check the log for a mixin warning); (2) advancement awarding uses `server.getAdvancements().get(id)` and `player.getAdvancements().award(holder, "done")`; a wrong API name would fail the BUILD, a bad JSON would just log an error and skip that advancement; (3) the advancements use `minecraft:adventure/root` as parent so no custom tab background is needed.
+
+### 11.12 Round 8b notes
+The advancement tab depends on the `background` format `"combatinjuries:gui/advancements/ifaar"` (a texture id WITHOUT `textures/` or `.png`). If that is wrong in 26.2, the root advancement fails to load and the whole IFAAR tab is missing (check the log for an advancement parse error) - fix the one value in `data/combatinjuries/advancement/root.json`.
+
+### 11.13 Round 9 notes
+`AdrenalineRules` now uses per-stack arrays (`SEGMENT_BY_SHOTS`, `COOLDOWN_BY_SHOTS`, `WINDOW_BY_SHOTS`). Anything that needs the bar geometry must call `segmentTicks(shots)` / `cooldownTicks(shots)` / `windowTicks(shots)` - there is no single COOLDOWN_TICKS any more. The vanilla item cooldown (greyed item) is set from `cooldownTicks(next stack)`.
+
+### 11.14 Round 10 notes
+
+Veins: `CombatInjuriesClient.buildVeins/renderVeins`. Polylines are generated from a per-rush seed (`veinSeed`), drawn with small `fill` squares; growth target `0.06 + 0.22*(shots-1) + 0.16*segmentProgress`, eased per frame. Tunables: vein counts (17 mains, 2 branches), thickness (`base`, `boost`), colour (`0x6E0A12` -> `0xD01828` on pulse). Sound event `ADRENALINE_VEINS`. Popup spawn interval is in `renderPopups`.
